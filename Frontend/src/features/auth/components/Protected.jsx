@@ -1,13 +1,14 @@
-import { useAuth } from "../hooks/useAuth";
+import React from "react";
 import { Navigate } from "react-router";
-import React from 'react'
+import { useAuth } from "../hooks/useAuth";
+import Loader from "../../../components/Loader";
 
 const Protected = ({children}) => {
-    const { loading,user } = useAuth()
+    const { loading, user } = useAuth()
 
 
     if(loading){
-        return (<main><h1>Loading...</h1></main>)
+        return (<main className="auth-page"><Loader message="Initializing secure session..." /></main>)
     }
 
     if(!user){

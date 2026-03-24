@@ -10,6 +10,7 @@ import {
 } from "../services/progress.api"
 import Sidebar from "../components/Sidebar"
 import NotificationBell from "../components/NotificationBell"
+import Loader from "../../../components/Loader"
 
 function formatDateKey(dateValue) {
     const d = new Date(dateValue)
@@ -528,7 +529,7 @@ const ProgressTracker = () => {
                 </section>
                 
                 <div className="notes-flash">
-                    {loading && <p className="notes-meta">Loading tracker...</p>}
+                    {loading && <Loader message="Synchronizing your progress data..." style={{ minHeight: '180px', marginTop: '1rem' }} />}
                     {error && <p className="notes-error">{error}</p>}
                     {message && <p className="notes-success">{message}</p>}
                 </div>

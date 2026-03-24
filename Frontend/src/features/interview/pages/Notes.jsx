@@ -5,6 +5,7 @@ import "../style/notes.scss"
 import { createNote, deleteNote, exportNotesPdf, generateAiAnswer, getNotes, updateNote } from "../services/notes.api"
 import Sidebar from "../components/Sidebar"
 import NotificationBell from "../components/NotificationBell"
+import Loader from "../../../components/Loader"
 
 const COMMON_SUBDOMAINS = [
     "None",
@@ -486,7 +487,7 @@ const Notes = () => {
                                 </div>
                             )}
 
-                        {loading && <p className="notes-meta">Loading...</p>}
+                        {loading && <Loader message="Accessing your secure notes..." style={{ minHeight: '200px' }} />}
 
                         {!loading && (
                             <div className="notes-list">

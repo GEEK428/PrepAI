@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router'
 import "../auth.form.scss"
 import { verifyEmail } from '../services/auth.api'
 import { SparkIcon } from '../components/AuthIcons'
+import Loader from '../../../components/Loader'
 
 const VerifyEmail = () => {
     const { token } = useParams()
@@ -48,9 +49,11 @@ const VerifyEmail = () => {
                         {status === "error" && "Verification Failed"}
                     </h2>
 
-                    <p className={status === "error" ? "auth-error" : "auth-success"} style={{ marginTop: '1rem', fontSize: '0.88rem' }}>
-                        {status === "loading" ? "Please wait while we verify your email..." : message}
-                    </p>
+                    {status === "loading" ? <Loader message="Verifying your digital identity..." style={{ minHeight: '180px' }} /> : (
+                        <p className={status === "error" ? "auth-error" : "auth-success"} style={{ marginTop: '1rem', fontSize: '0.88rem' }}>
+                           {message}
+                        </p>
+                    )}
 
                     {status === "success" && (
                         <Link to="/login" className='button primary-button login-btn' style={{ marginTop: '1.2rem', textAlign: 'center', display: 'inline-block', textDecoration: 'none', maxWidth: '240px' }}>
