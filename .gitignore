@@ -1,0 +1,12 @@
+node_modules/
+**/node_modules/
+
+.env
+Backend/.env
+Frontend/.env
+
+dist/
+**/dist/
+
+.DS_Store
+Thumbs.db

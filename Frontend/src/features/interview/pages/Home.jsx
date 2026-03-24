@@ -2,13 +2,19 @@ import React, { useState, useRef, useEffect } from 'react'
 import "../style/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
 import { useNavigate } from 'react-router'
+import Sidebar from '../components/Sidebar'
+import NotificationBell from '../components/NotificationBell'
+import Loader from '../../../components/Loader'
 
 const Home = () => {
 
     const { loading, generateReport, reports, getReports } = useInterview()
+    
     const [ jobDescription, setJobDescription ] = useState("")
     const [ selfDescription, setSelfDescription ] = useState("")
     const [error, setError] = useState("")
+    const [selectedFile, setSelectedFile] = useState("")
+    const [showPlansModal, setShowPlansModal] = useState(false)
     const resumeInputRef = useRef()
 
     const navigate = useNavigate()
@@ -19,7 +25,7 @@ const Home = () => {
 
     const handleGenerateReport = async () => {
         setError("")
-        const resumeFile = resumeInputRef.current.files[ 0 ]
+        const resumeFile = resumeInputRef.current?.files?.[0]
 
         if (!jobDescription?.trim()) {
             setError("Job description is required.")
@@ -41,134 +47,181 @@ const Home = () => {
         navigate(`/interview/${data._id}`)
     }
 
+    const clearSelectedResume = () => {
+        setSelectedFile("")
+        if (resumeInputRef.current) {
+            resumeInputRef.current.value = ""
+        }
+    }
+
     if (loading) {
         return (
             <main className='loading-screen'>
-                <h1>Loading your interview plan...</h1>
+                <Loader message="Analyzing job requirements and your unique profile..." style={{ height: '100vh', background: 'transparent' }} />
             </main>
         )
     }
 
     return (
-        <div className='home-page'>
-
-            {/* Page Header */}
-            <header className='page-header'>
-                <h1>Create Your Custom <span className='highlight'>Interview Plan</span></h1>
-                <p>Let our AI analyze the job requirements and your unique profile to build a winning strategy.</p>
-            </header>
-
-            {/* Main Card */}
-            <div className='interview-card'>
-                <div className='interview-card__body'>
-
-                    {/* Left Panel - Job Description */}
-                    <div className='panel panel--left'>
-                        <div className='panel__header'>
-                            <span className='panel__icon'>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
-                            </span>
-                            <h2>Target Job Description</h2>
-                            <span className='badge badge--required'>Required</span>
-                        </div>
-                        <textarea
-                            onChange={(e) => { setJobDescription(e.target.value) }}
-                            className='panel__textarea'
-                            placeholder={`Paste the full job description here...\ne.g. 'Senior Frontend Engineer at Google requires proficiency in React, TypeScript, and large-scale system design...'`}
-                            maxLength={5000}
-                        />
-                        <div className='char-counter'>0 / 5000 chars</div>
+        <main className="dashboard-page">
+            <Sidebar />
+            
+            <section className="dashboard-main">
+                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '1.8rem', color: '#9fd0f4' }}>troubleshoot</span>
+                            Resume Analysis
+                        </h1>
+                        <p className="dashboard-subtitle">Upload your resume or enter a self-description along with the target job listing to generate a personalized interview strategy.</p>
                     </div>
-
-                    {/* Vertical Divider */}
-                    <div className='panel-divider' />
-
-                    {/* Right Panel - Profile */}
-                    <div className='panel panel--right'>
-                        <div className='panel__header'>
-                            <span className='panel__icon'>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                            </span>
-                            <h2>Your Profile</h2>
+                    <NotificationBell />
+                </header>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <article className="analysis-builder">
+                        <div className="panel-heading">
+                            <h2>Create Your Custom Interview Strategy</h2>
                         </div>
-
-                        {/* Upload Resume */}
-                        <div className='upload-section'>
-                            <label className='section-label'>
-                                Upload Resume
-                                <span className='badge badge--best'>Best Results</span>
-                            </label>
-                            <label className='dropzone' htmlFor='resume'>
-                                <span className='dropzone__icon'>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" /></svg>
-                                </span>
-                                <p className='dropzone__title'>Click to upload or drag &amp; drop</p>
-                                <p className='dropzone__subtitle'>PDF or DOCX (Max 5MB)</p>
-                                <input ref={resumeInputRef} hidden type='file' id='resume' name='resume' accept='.pdf,.docx' />
-                            </label>
+                        
+                        <div className="analysis-builder__main">
+                            <div className="input-card">
+                                <h2>Target Job Description</h2>
+                                <p className="input-card__hint">Paste the full job description here</p>
+                                <textarea
+                                    className="job-description"
+                                    onChange={(e) => setJobDescription(e.target.value)}
+                                    placeholder="e.g. 'Senior Frontend Engineer at Google requires proficiency in React, TypeScript, and large-scale system design...'"
+                                    value={jobDescription}
+                                />
+                            </div>
+                            
+                            <div className="input-card">
+                                <h2>Your Profile Background</h2>
+                                <p className="input-card__hint">Either upload resume or use self description</p>
+                                
+                                <label className="file-field">
+                                    <span style={{ fontSize: "16px", marginRight: "6px" }}>📄</span>
+                                    Select Resume
+                                    <input 
+                                        ref={resumeInputRef} 
+                                        type='file' 
+                                        accept='.pdf,.docx'
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0]?.name || "")}
+                                    />
+                                </label>
+                                {selectedFile && <div className="file-name">{selectedFile}</div>}
+                                {selectedFile && <button className="file-remove-btn" onClick={clearSelectedResume} type="button">Remove</button>}
+                                
+                                <div style={{ marginTop: "1rem" }}>
+                                    <h2 style={{ fontSize: "0.86rem", color: "rgba(194, 214, 233, 0.7)" }}>OR Quick Self-Description</h2>
+                                    <textarea
+                                        onChange={(e) => setSelfDescription(e.target.value)}
+                                        value={selfDescription}
+                                        placeholder="Briefly describe your experience, key skills, and years of experience if you don't have a resume handy..."
+                                        style={{ minHeight: "65px", marginTop: "0.4rem" }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-
-                        {/* OR Divider */}
-                        <div className='or-divider'><span>OR</span></div>
-
-                        {/* Quick Self-Description */}
-                        <div className='self-description'>
-                            <label className='section-label' htmlFor='selfDescription'>Quick Self-Description</label>
-                            <textarea
-                                onChange={(e) => { setSelfDescription(e.target.value) }}
-                                id='selfDescription'
-                                name='selfDescription'
-                                className='panel__textarea panel__textarea--short'
-                                placeholder="Briefly describe your experience, key skills, and years of experience if you don't have a resume handy..."
-                            />
+                        
+                        <div className="analysis-builder__footer">
+                            <div>
+                                {error && <p className="builder-error">{error}</p>}
+                            </div>
+                                <button
+                                    onClick={handleGenerateReport}
+                                    className="generate-btn"
+                                    disabled={loading}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>auto_awesome</span>
+                                    Analyze
+                                </button>
                         </div>
-
-                        {/* Info Box */}
-                        <div className='info-box'>
-                            <span className='info-box__icon'>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" stroke="#1a1f27" strokeWidth="2" /><line x1="12" y1="16" x2="12.01" y2="16" stroke="#1a1f27" strokeWidth="2" /></svg>
-                            </span>
-                            <p>Either a <strong>Resume</strong> or a <strong>Self Description</strong> is required to generate a personalized plan.</p>
+                    </article>
+                    
+                    <article className="reports-panel">
+                        <div className="panel-heading">
+                            <h2>My Recent Plans</h2>
                         </div>
-                    </div>
+                        
+                        {reports.length === 0 ? (
+                            <div className="empty-state">
+                                <p>No history yet.</p>
+                                <span>Generate a report to see it here.</span>
+                            </div>
+                        ) : (
+                            <>
+                                <ul className="report-list">
+                                    {reports.slice(0, 4).map(report => (
+                                        <li key={report._id} className="report-item">
+                                            <div className="report-meta">
+                                                <h3>{report.title || 'Untitled Position'}</h3>
+                                                <p>{new Date(report.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                            </div>
+                                            <p className="report-score">{report.matchScore ? report.matchScore + "% Match" : "Ready"}</p>
+                                            <button 
+                                                className="download-btn"
+                                                onClick={() => navigate(`/interview/${report._id}`)}
+                                            >
+                                                View Plan
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                                {reports.length > 4 && (
+                                    <button 
+                                        className="history-more-btn" 
+                                        onClick={() => setShowPlansModal(true)}
+                                        style={{ marginTop: '0.8rem', width: '100%', display: 'block' }}>
+                                        Show More
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </article>
                 </div>
-
-                {/* Card Footer */}
-                <div className='interview-card__footer'>
-                    <span className='footer-info'>AI-Powered Strategy Generation &bull; Approx 30s</span>
-                    <button
-                        onClick={handleGenerateReport}
-                        className='generate-btn'>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" /></svg>
-                        Generate My Interview Strategy
-                    </button>
-                </div>
-                {error && <p style={{ color: "#e53935", padding: "0 1.5rem 1.5rem" }}>{error}</p>}
-            </div>
-
-            {/* Recent Reports List */}
-            {reports.length > 0 && (
-                <section className='recent-reports'>
-                    <h2>My Recent Interview Plans</h2>
-                    <ul className='reports-list'>
-                        {reports.map(report => (
-                            <li key={report._id} className='report-item' onClick={() => navigate(`/interview/${report._id}`)}>
-                                <h3>{report.title || 'Untitled Position'}</h3>
-                                <p className='report-meta'>Generated on {new Date(report.createdAt).toLocaleDateString()}</p>
-                                <p className={`match-score ${report.matchScore >= 80 ? 'score--high' : report.matchScore >= 60 ? 'score--mid' : 'score--low'}`}>Match Score: {report.matchScore}%</p>
-                            </li>
-                        ))}
-                    </ul>
+                
+                <footer className="dashboard-footer">
+                    <a href='#' onClick={e => e.preventDefault()}>Privacy Policy</a>
+                    <a href='#' onClick={e => e.preventDefault()}>Terms of Service</a>
+                    <a href='#' onClick={e => e.preventDefault()}>Help Center</a>
+                </footer>
+            </section>
+            
+            {showPlansModal && (
+                <section className="history-modal-overlay" onClick={() => setShowPlansModal(false)}>
+                    <article className="history-modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(760px, 92vw)', maxHeight: '78vh', overflow: 'auto', border: '1px solid rgba(146, 173, 196, 0.24)', borderRadius: '0.85rem', background: 'linear-gradient(145deg, rgba(24, 40, 56, 0.96), rgba(10, 18, 27, 0.98))', padding: '1.2rem' }}>
+                        <div className="history-modal__head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>All Report Plans</h3>
+                            <div className="history-modal__actions">
+                                <button type="button" onClick={() => setShowPlansModal(false)}>Close</button>
+                            </div>
+                        </div>
+                        <div className="history-modal__list" style={{ display: 'grid', gap: '0.6rem' }}>
+                            {reports.map(report => (
+                                <div className="history-modal__item" key={report._id} style={{ border: '1px solid rgba(146, 173, 196, 0.22)', background: 'rgba(88, 121, 151, 0.1)', borderRadius: '0.55rem', padding: '0.62rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <strong style={{ fontSize: '0.86rem' }}>{report.title || 'Untitled Position'}</strong>
+                                        <p style={{ margin: '0.14rem 0 0', fontSize: '0.74rem', color: 'rgba(194, 214, 233, 0.72)' }}>{new Date(report.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                        <p className="report-score" style={{ margin: 0 }}>{report.matchScore ? report.matchScore + "% Match" : "Ready"}</p>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => navigate(`/interview/${report._id}`)}
+                                            style={{ border: '1px solid rgba(143, 180, 210, 0.3)', background: 'rgba(97, 137, 169, 0.2)', color: '#eaf3fb', borderRadius: '0.35rem', padding: '0.28rem 0.55rem', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                            View Plan
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </article>
                 </section>
             )}
-
-            {/* Page Footer */}
-            <footer className='page-footer'>
-                <a href='#'>Privacy Policy</a>
-                <a href='#'>Terms of Service</a>
-                <a href='#'>Help Center</a>
-            </footer>
-        </div>
+        </main>
     )
 }
 

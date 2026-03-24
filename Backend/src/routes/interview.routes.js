@@ -21,6 +21,27 @@ interviewRouter.post("/", authMiddleware.authUser, upload.single("resume"), inte
  */
 interviewRouter.get("/report/:interviewId", authMiddleware.authUser, interviewController.getInterviewReportByIdController)
 
+/**
+ * @route GET /api/interview/report/:interviewId/insights
+ * @description get report insights like top matched skills and critical gaps.
+ * @access private
+ */
+interviewRouter.get("/report/:interviewId/insights", authMiddleware.authUser, interviewController.getInterviewInsightsController)
+
+/**
+ * @route DELETE /api/interview/report/:interviewId
+ * @description delete interview report by interviewId.
+ * @access private
+ */
+interviewRouter.delete("/report/:interviewId", authMiddleware.authUser, interviewController.deleteInterviewReportController)
+
+
+/**
+ * @route GET /api/interview/dashboard/stats
+ * @description get aggregated radar stats for dashboard
+ * @access private
+ */
+interviewRouter.get("/dashboard/stats", authMiddleware.authUser, interviewController.getDashboardStatsController)
 
 /**
  * @route GET /api/interview/

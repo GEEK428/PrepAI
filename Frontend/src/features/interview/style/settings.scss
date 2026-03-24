@@ -1,0 +1,217 @@
+.settings-main {
+    gap: 0.8rem;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 0.75rem;
+}
+
+.settings-card {
+    border: 1px solid rgba(146, 173, 196, 0.2);
+    border-radius: 0.85rem;
+    background: linear-gradient(145deg, rgba(34, 53, 71, 0.35), rgba(14, 23, 32, 0.9));
+    padding: 0.7rem;
+
+    h3 {
+        margin: 0 0 0.55rem;
+        font-size: 0.95rem;
+    }
+}
+
+.settings-profile-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.55rem;
+}
+
+.avatar-box {
+    width: 5.4rem;
+    height: 5.4rem;
+    border-radius: 0.8rem;
+    border: 1px solid rgba(146, 173, 196, 0.24);
+    background: rgba(12, 24, 36, 0.75);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    color: rgba(194, 214, 233, 0.78);
+    font-size: 0.68rem;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.avatar-actions {
+    display: grid;
+    gap: 0.32rem;
+
+    input {
+        display: none;
+    }
+
+    button {
+        border: 1px solid rgba(143, 180, 210, 0.35);
+        background: rgba(97, 137, 169, 0.2);
+        color: #eaf3fb;
+        border-radius: 0.45rem;
+        padding: 0.32rem 0.58rem;
+        font-size: 0.66rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+}
+
+.avatar-clear-btn {
+    border-color: rgba(255, 179, 172, 0.35) !important;
+    background: rgba(255, 150, 140, 0.1) !important;
+    color: #ffc2bc !important;
+}
+
+.settings-form {
+    display: grid;
+    gap: 0.3rem;
+
+    label {
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(194, 214, 233, 0.75);
+        margin-top: 0.1rem;
+    }
+
+    input,
+    textarea,
+    select {
+        width: 100%;
+        border: 1px solid rgba(146, 173, 196, 0.24);
+        border-radius: 0.5rem;
+        background: rgba(12, 24, 36, 0.75);
+        color: #eaf2f8;
+        font-size: 0.74rem;
+        padding: 0.45rem 0.52rem;
+    }
+
+    textarea {
+        min-height: 95px;
+        resize: vertical;
+    }
+}
+
+.settings-inline-actions {
+    margin-top: 0.5rem;
+
+    button {
+        border: 1px solid rgba(143, 180, 210, 0.35);
+        background: linear-gradient(135deg, #84b8e6, #569bcd);
+        color: #08131f;
+        border-radius: 0.45rem;
+        padding: 0.4rem 0.72rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+}
+
+.danger-zone {
+    border-color: rgba(255, 179, 172, 0.2);
+}
+
+.danger-copy {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    color: rgba(231, 192, 187, 0.86);
+}
+
+.danger-btn {
+    border-color: rgba(255, 179, 172, 0.35) !important;
+    background: linear-gradient(135deg, rgba(246, 142, 134, 0.9), rgba(216, 101, 93, 0.95)) !important;
+    color: #230707 !important;
+}
+
+.settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 1rem;
+}
+
+.settings-error {
+    margin: 0;
+    font-size: 0.68rem;
+    color: #ffb8b2;
+}
+
+.settings-success {
+    margin: 0;
+    font-size: 0.68rem;
+    color: #9fe7cb;
+}
+
+.camera-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 8, 14, 0.72);
+    display: grid;
+    place-items: center;
+    z-index: 50;
+}
+
+.camera-modal {
+    width: min(420px, 92vw);
+    border: 1px solid rgba(146, 173, 196, 0.24);
+    border-radius: 0.85rem;
+    background: linear-gradient(145deg, rgba(24, 40, 56, 0.96), rgba(10, 18, 27, 0.98));
+    padding: 0.7rem;
+
+    h3 {
+        margin: 0 0 0.45rem;
+        font-size: 0.86rem;
+    }
+
+    video {
+        width: 100%;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(146, 173, 196, 0.22);
+        background: #000;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+    }
+}
+
+.camera-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.45rem;
+
+    button {
+        border: 1px solid rgba(143, 180, 210, 0.35);
+        background: linear-gradient(135deg, #84b8e6, #569bcd);
+        color: #08131f;
+        border-radius: 0.45rem;
+        padding: 0.36rem 0.62rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+.camera-cancel-btn {
+    background: rgba(97, 137, 169, 0.2) !important;
+    color: #eaf3fb !important;
+}
+
+@media (max-width: 1100px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}

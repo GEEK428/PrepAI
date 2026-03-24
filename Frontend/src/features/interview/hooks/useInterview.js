@@ -1,7 +1,6 @@
-import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf } from "../services/interview.api"
+import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf, deleteInterviewReport, getDashboardRadarStats } from "../services/interview.api"
 import { useContext } from "react"
 import { InterviewContext } from "../interview.context"
-
 
 export const useInterview = () => {
 
@@ -24,7 +23,6 @@ export const useInterview = () => {
         } finally {
             setLoading(false)
         }
-
         return response?.interviewReport || null
     }
 
@@ -53,8 +51,20 @@ export const useInterview = () => {
         } finally {
             setLoading(false)
         }
-
         return response?.interviewReports || []
+    }
+
+    const getDashboardStats = async () => {
+        setLoading(true)
+        try {
+            const data = await getDashboardRadarStats()
+            return data.radarData
+        } catch (err) {
+            console.log(err)
+            return null
+        } finally {
+            setLoading(false)
+        }
     }
 
     const getResumePdf = async (interviewReportId) => {
@@ -76,6 +86,33 @@ export const useInterview = () => {
         }
     }
 
-    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf }
+    const getResumePdfBlob = async (interviewReportId) => {
+        setLoading(true)
+        let response = null
+        try {
+            response = await generateResumePdf({ interviewReportId })
+            return new Blob([ response ], { type: "application/pdf" })
+        } catch (error) {
+            console.log(error)
+            return null
+        } finally {
+            setLoading(false)
+        }
+    }
 
+    const deleteReport = async (interviewId) => {
+        setLoading(true)
+        try {
+            await deleteInterviewReport(interviewId)
+            setReports((prev) => prev.filter((item) => item._id !== interviewId))
+            return true
+        } catch (error) {
+            console.log(error)
+            return false
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return { loading, report, reports, generateReport, getReportById, getReports, getDashboardStats, getResumePdf, getResumePdfBlob, deleteReport }
 }
