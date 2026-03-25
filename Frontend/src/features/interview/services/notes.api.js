@@ -5,6 +5,12 @@ const api = axios.create({
     withCredentials: true
 })
 
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem("intelliprep_token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+})
+
 export const getNotes = async ({ view = "all", search = "", domain = "" } = {}) => {
     const response = await api.get("/api/notes", {
         params: { view, search, domain }

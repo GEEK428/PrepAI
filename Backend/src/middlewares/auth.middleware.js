@@ -6,7 +6,9 @@ const userModel = require("../models/user.model")
 
 async function authUser(req, res, next) {
 
-    const token = req.cookies.token
+    // Check Authorization header first (mobile), then cookies (desktop)
+    const authHeader = req.headers.authorization
+    const token = (authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null) || req.cookies.token
 
     if (!token) {
         return res.status(401).json({

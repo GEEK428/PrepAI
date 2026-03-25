@@ -5,6 +5,15 @@ const api = axios.create({
     withCredentials: true,
 });
 
+// Attach token from localStorage to every request
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem("intelliprep_token");
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 export const register = async ({ username, email, password }) => {
     const response = await api.post("/api/auth/register", { username, email, password });
     return response.data;
@@ -12,16 +21,23 @@ export const register = async ({ username, email, password }) => {
 
 export const login = async ({ email, password }) => {
     const response = await api.post("/api/auth/login", { email, password });
+    if (response.data.token) {
+        localStorage.setItem("intelliprep_token", response.data.token);
+    }
     return response.data;
 };
 
 export const googleLogin = async ({ credential }) => {
     const response = await api.post("/api/auth/google", { credential });
+    if (response.data.token) {
+        localStorage.setItem("intelliprep_token", response.data.token);
+    }
     return response.data;
 };
 
 export const logout = async () => {
     const response = await api.get("/api/auth/logout");
+    localStorage.removeItem("intelliprep_token");
     return response.data;
 };
 
@@ -58,6 +74,7 @@ export const changePassword = async ({ currentPassword, newPassword }) => {
 
 export const deleteAccount = async ({ password }) => {
     const response = await api.delete("/api/auth/delete-account", { data: { password } });
+    localStorage.removeItem("intelliprep_token");
     return response.data;
 };
 

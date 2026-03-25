@@ -268,7 +268,8 @@ async function loginUserController(req, res) {
     })
     res.status(200).json({
         message: "User loggedIn successfully.",
-        user: buildUserResponse(user)
+        user: buildUserResponse(user),
+        token
     })
 }
 
@@ -341,7 +342,8 @@ async function googleAuthController(req, res) {
     })
     res.status(200).json({
         message: "Google sign-in successful.",
-        user: buildUserResponse(user)
+        user: buildUserResponse(user),
+        token
     })
 }
 
@@ -352,7 +354,8 @@ async function googleAuthController(req, res) {
  * @access public
  */
 async function logoutUserController(req, res) {
-    const token = req.cookies.token
+    const authHeader = req.headers.authorization
+    const token = (authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null) || req.cookies.token
 
     if (token) {
         await tokenBlacklistModel.create({ token })
