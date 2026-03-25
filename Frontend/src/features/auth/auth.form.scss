@@ -510,3 +510,26 @@
         }
     }
 }
+
+
+/* MOBILE FIXES */
+@media (max-width: 850px) {
+    .auth-page--login .auth-shell,
+    .auth-page--register .auth-shell,
+    .auth-page--forgot .auth-shell {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto 1fr;
+        max-height: unset;
+        min-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .auth-hero {
+        padding: 2rem 1.5rem !important;
+    }
+    
+    .hero-points--cards {
+        display: flex;
+        flex-wrap: wrap;
+    }
+}

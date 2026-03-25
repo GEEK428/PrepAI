@@ -823,3 +823,22 @@
         padding: 1rem;
     }
 }
+
+
+/* HEADER CRAMP FIX */
+@media (max-width: 850px) {
+    .dashboard-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    .dashboard-header > div {
+        width: 100%;
+    }
+    .dashboard-subtitle {
+        max-width: 100% !important;
+        line-height: 1.5 !important;
+        font-size: 0.8rem;
+    }
+}
