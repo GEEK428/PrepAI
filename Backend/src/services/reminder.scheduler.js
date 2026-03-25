@@ -1,4 +1,5 @@
-const nodemailer = require("nodemailer")
+const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const roadmapModel = require("../models/roadmap.model")
 const userModel = require("../models/user.model")
 const notificationModel = require("../models/notification.model")
@@ -38,32 +39,22 @@ function shouldTriggerNow(reminderTime, now) {
 }
 
 async function sendEmailSafe({ to, subject, text, html }) {
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-        console.log(`[ReminderEmail:Preview] ${to} | ${subject} | ${text}`)
-        return
+    const { RESEND_API_KEY, RESEND_FROM_EMAIL } = process.env;
+    if (!RESEND_API_KEY) {
+        console.log(`[ReminderEmail:Preview] ${to} | ${subject} | ${text}`);
+        return;
     }
-
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: Number(SMTP_PORT),
-        secure: Number(SMTP_PORT) === 465,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS
-        }
-    })
-
     try {
-        await transporter.sendMail({
-            from: SMTP_FROM || SMTP_USER,
+        const resend = new Resend(RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+            from: RESEND_FROM_EMAIL || 'onboarding@resend.dev',
             to,
             subject,
-            text,
             html
-        })
+        });
+        if (error) throw new Error(error.message);
     } catch (e) {
-        console.log(`[ReminderEmail:Failed] ${e.message}`)
+        console.log(`[ReminderEmail:Failed] ${e.message}`);
     }
 }
 

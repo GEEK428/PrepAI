@@ -2,7 +2,8 @@ const userModel = require("../models/user.model")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const crypto = require("crypto")
-const nodemailer = require("nodemailer")
+const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const tokenBlacklistModel = require("../models/blacklist.model")
 const interviewReportModel = require("../models/interviewReport.model")
 const { noteModel } = require("../models/note.model")
@@ -99,35 +100,17 @@ function hashResetToken(token) {
 }
 
 async function sendForgotPasswordEmail({ email, resetUrl }) {
-    const {
-        SMTP_HOST,
-        SMTP_PORT,
-        SMTP_USER,
-        SMTP_PASS,
-        SMTP_FROM
-    } = process.env
-
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-        console.log(`[ForgotPassword] SMTP not configured. Reset URL for ${email}: ${resetUrl}`)
-        return
+    const { RESEND_API_KEY, RESEND_FROM_EMAIL } = process.env;
+    if (!RESEND_API_KEY) {
+        console.log(`[ForgotPassword] Resend not configured. Reset URL for ${email}: ${resetUrl}`);
+        return;
     }
-
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: Number(SMTP_PORT),
-        secure: Number(SMTP_PORT) === 465,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS
-        }
-    })
-
     try {
-        await transporter.sendMail({
-            from: SMTP_FROM || SMTP_USER,
+        const resend = new Resend(RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+            from: RESEND_FROM_EMAIL || 'onboarding@resend.dev',
             to: email,
             subject: "Reset your IntelliPrep password",
-            text: `Use this link to reset your password: ${resetUrl}\n\nThis link expires in 15 minutes.`,
             html: `
                 <div style="font-family: Arial, sans-serif; color: #111;">
                     <h2>Reset your IntelliPrep password</h2>
@@ -139,43 +122,26 @@ async function sendForgotPasswordEmail({ email, resetUrl }) {
                     <p>If you did not request this, you can ignore this email.</p>
                 </div>
             `
-        })
+        });
+        if (error) throw new Error(error.message);
     } catch (e) {
-        console.log(`[ForgotPassword] Failed to send: ${e.message}`)
-        throw new Error("Email service is temporarily unavailable. Please try again later.")
+        console.log(`[ForgotPassword] Failed to send: ${e.message}`);
+        throw new Error("Email service is temporarily unavailable. Please try again later.");
     }
 }
 
 async function sendVerificationEmail({ email, verifyUrl }) {
-    const {
-        SMTP_HOST,
-        SMTP_PORT,
-        SMTP_USER,
-        SMTP_PASS,
-        SMTP_FROM
-    } = process.env
-
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-        console.log(`[VerifyEmail] SMTP not configured. Verify URL for ${email}: ${verifyUrl}`)
-        return
+    const { RESEND_API_KEY, RESEND_FROM_EMAIL } = process.env;
+    if (!RESEND_API_KEY) {
+        console.log(`[VerifyEmail] Resend not configured. Verify URL for ${email}: ${verifyUrl}`);
+        return;
     }
-
-    const transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: Number(SMTP_PORT),
-        secure: Number(SMTP_PORT) === 465,
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS
-        }
-    })
-
     try {
-        await transporter.sendMail({
-            from: SMTP_FROM || SMTP_USER,
+        const resend = new Resend(RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+            from: RESEND_FROM_EMAIL || 'onboarding@resend.dev',
             to: email,
             subject: "Verify your IntelliPrep account",
-            text: `Welcome! Use this link to verify your email: ${verifyUrl}\n\nThis link expires in 24 hours.`,
             html: `
                 <div style="font-family: Arial, sans-serif; color: #111;">
                     <h2>Welcome to IntelliPrep!</h2>
@@ -189,10 +155,11 @@ async function sendVerificationEmail({ email, verifyUrl }) {
                     <p>If you did not create an account, you can ignore this email.</p>
                 </div>
             `
-        })
+        });
+        if (error) throw new Error(error.message);
     } catch (e) {
-        console.log(`[VerifyEmail] Failed to send: ${e.message}`)
-        throw new Error("Email service is temporarily unavailable. Please try again later.")
+        console.log(`[VerifyEmail] Failed to send: ${e.message}`);
+        throw new Error("Email service is temporarily unavailable. Please try again later.");
     }
 }
 
