@@ -31,7 +31,9 @@ function hhmmToMinutes(value = "00:00") {
 }
 
 function shouldTriggerNow(reminderTime, now) {
-    const nowMinutes = (now.getHours() * 60) + now.getMinutes()
+    const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    const ist = new Date(istString)
+    const nowMinutes = (ist.getHours() * 60) + ist.getMinutes()
     return nowMinutes >= hhmmToMinutes(reminderTime)
 }
 

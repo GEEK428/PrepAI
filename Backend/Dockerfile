@@ -1,8 +1,9 @@
 FROM node:20
 
-# Install minimal chromium dependencies for puppeteer PDF generation
+# Install chromium and minimal dependencies for puppeteer PDF generation
 RUN DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --fix-missing \
+    chromium \
     wget \
     gnupg \
     ca-certificates \
