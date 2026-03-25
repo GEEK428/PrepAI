@@ -101,6 +101,12 @@
     gap: 0.9rem;
 }
 
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
 .analysis-builder {
     background: linear-gradient(145deg, rgba(34, 53, 71, 0.35), rgba(14, 23, 32, 0.9));
     border: 1px solid rgba(146, 173, 196, 0.2);
