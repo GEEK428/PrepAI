@@ -54,13 +54,17 @@ async function sendEmailSafe({ to, subject, text, html }) {
         }
     })
 
-    await transporter.sendMail({
-        from: SMTP_FROM || SMTP_USER,
-        to,
-        subject,
-        text,
-        html
-    })
+    try {
+        await transporter.sendMail({
+            from: SMTP_FROM || SMTP_USER,
+            to,
+            subject,
+            text,
+            html
+        })
+    } catch (e) {
+        console.log(`[ReminderEmail:Failed] ${e.message}`)
+    }
 }
 
 async function createInAppNotification({ userId, type, title, message, meta = {} }) {
@@ -98,7 +102,8 @@ async function processRoadmapReminder(roadmap, now) {
 
     if (ongoingGoals.length) {
         const nearest = ongoingGoals[0]
-        const daysLeft = Math.max(0, Math.ceil((new Date(nearest.deadline) - today) / (1000 * 60 * 60 * 24)))
+        const deadlineDay = startOfDay(nearest.deadline)
+        const daysLeft = Math.max(0, Math.round((deadlineDay - today) / (1000 * 60 * 60 * 24)))
         const title = `Complete your ${nearest.skill} goal (${nearest.currentProgress}/${nearest.targetValue})`
         const message = `${daysLeft} day(s) left.`
 
