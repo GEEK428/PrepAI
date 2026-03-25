@@ -55,15 +55,39 @@ const ResumeBuilder = () => {
 
     const triggerDownload = async ({ reportId, fileName }) => {
         if (!reportId) return
-        const blob = await getResumePdfBlob(reportId)
-        if (!blob) return
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.setAttribute("download", fileName)
-        document.body.appendChild(link)
-        link.click()
-        window.URL.revokeObjectURL(url)
+        
+        // Open a blank tab immediately to bypass mobile popup blockers (needs a direct user click)
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        let downloadWindow = null;
+        if (isMobile) {
+            downloadWindow = window.open('about:blank', '_blank');
+        }
+
+        try {
+            const blob = await getResumePdfBlob(reportId)
+            if (!blob) {
+                if (downloadWindow) downloadWindow.close();
+                return
+            }
+            const url = window.URL.createObjectURL(blob)
+            
+            if (isMobile && downloadWindow) {
+                // Redirect the already-open tab to the PDF blob
+                downloadWindow.location.href = url;
+            } else {
+                const link = document.createElement("a")
+                link.href = url
+                link.setAttribute("download", fileName)
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                // Revoke after small delay to ensure click finishes
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+            }
+        } catch (e) {
+            if (downloadWindow) downloadWindow.close();
+            console.error(e);
+        }
     }
 
     const handleGenerateOptimizedResume = async () => {
@@ -127,7 +151,7 @@ const ResumeBuilder = () => {
             <Sidebar />
 
             <section className="dashboard-main resume-builder-main">
-                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <header className="dashboard-header">
                     <div>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '1.8rem', color: '#9fd0f4' }}>edit_document</span>
@@ -212,7 +236,16 @@ const ResumeBuilder = () => {
 
                         <div className="preview-body">
                             {previewUrl ? (
-                                <iframe title="resume-preview" src={previewUrl} />
+                                <>
+                                    <iframe title="resume-preview" src={previewUrl} className="preview-iframe-desktop" />
+                                    <div className="preview-mobile-fallback">
+                                        <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: '#9fd0f4' }}>picture_as_pdf</span>
+                                        <p>Your resume PDF is ready!</p>
+                                        <button type="button" onClick={() => window.open(previewUrl, '_blank')}>
+                                            Open PDF Preview
+                                        </button>
+                                    </div>
+                                </>
                             ) : (
                                 <div className="preview-placeholder">Generated resume preview will appear here.</div>
                             )}

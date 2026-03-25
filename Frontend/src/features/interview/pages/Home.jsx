@@ -67,7 +67,7 @@ const Home = () => {
             <Sidebar />
             
             <section className="dashboard-main">
-                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <header className="dashboard-header">
                     <div>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '1.8rem', color: '#9fd0f4' }}>troubleshoot</span>

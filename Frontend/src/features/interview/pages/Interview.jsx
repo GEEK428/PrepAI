@@ -52,7 +52,7 @@ const Interview = () => {
             <Sidebar />
 
             <section className="dashboard-main interview-main">
-                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <header className="dashboard-header">
                     <div>
                         <h1 style={{ fontSize: '1.4rem', margin: 0, marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '1.6rem', color: '#9fd0f4' }}>analytics</span>

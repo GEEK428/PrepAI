@@ -88,7 +88,7 @@ const Dashboard = () => {
             <Sidebar />
 
             <section className="dashboard-main" style={{ gap: '0.6rem' }}>
-                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.2rem' }}>
+                <header className="dashboard-header" style={{ marginBottom: '0.2rem' }}>
                     <div>
                         <p className="dashboard-kicker">WELCOME BACK, <span style={{color:"#eaf2f8", textTransform: 'none', fontWeight: 'bold'}}>{user?.fullName || user?.username || 'GUEST'}</span></p>
                         <h1 style={{fontSize: '1.2rem', marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem'}}>

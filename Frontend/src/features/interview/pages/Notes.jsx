@@ -303,17 +303,31 @@ const Notes = () => {
     }
 
     const handleExportSelected = async () => {
+        // Pre-open tab for mobile popup bypass
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        let downloadWindow = null
+        if (isMobile) {
+            downloadWindow = window.open('about:blank', '_blank')
+        }
+
         try {
             const blob = await exportNotesPdf(selectedIds)
             const url = window.URL.createObjectURL(new Blob([ blob ], { type: "application/pdf" }))
-            const link = document.createElement("a")
-            link.href = url
-            link.setAttribute("download", "intelliprep_notes.pdf")
-            document.body.appendChild(link)
-            link.click()
-            window.URL.revokeObjectURL(url)
+            
+            if (isMobile && downloadWindow) {
+                downloadWindow.location.href = url
+            } else {
+                const link = document.createElement("a")
+                link.href = url
+                link.setAttribute("download", "intelliprep_notes.pdf")
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+            }
             setMessage("PDF downloaded.")
         } catch (err) {
+            if (downloadWindow) downloadWindow.close()
             setError(err?.response?.data?.message || "Unable to export notes.")
         }
     }
@@ -385,7 +399,7 @@ const Notes = () => {
             <Sidebar />
 
             <section className="dashboard-main notes-main">
-                <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <header className="dashboard-header">
                     <div>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '1.8rem', color: '#9fd0f4' }}>menu_book</span>

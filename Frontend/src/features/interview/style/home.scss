@@ -828,17 +828,27 @@
 /* HEADER CRAMP FIX */
 @media (max-width: 850px) {
     .dashboard-header {
+        display: flex !important;
         flex-direction: column !important;
         align-items: flex-start !important;
-        gap: 1rem;
-        margin-bottom: 0.5rem;
+        gap: 0.8rem !important;
+        margin-bottom: 1rem !important;
+    }
+    .head-actions {
+        margin-left: 0 !important;
+        width: 100%;
+        justify-content: space-between;
     }
     .dashboard-header > div {
-        width: 100%;
+        width: 100% !important;
+    }
+    .dashboard-header h1 {
+        font-size: 1.15rem !important;
     }
     .dashboard-subtitle {
         max-width: 100% !important;
-        line-height: 1.5 !important;
-        font-size: 0.8rem;
+        line-height: 1.4 !important;
+        font-size: 0.76rem !important;
+        margin-top: 0.1rem;
     }
 }

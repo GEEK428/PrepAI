@@ -149,7 +149,7 @@ const NotificationBell = () => {
             
             {showNotifications && (
                 <section className="history-modal-overlay notif-modal-overlay" onClick={() => setShowNotifications(false)}>
-                    <article className="history-modal notif-modal" onClick={(e) => e.stopPropagation()} style={{ width: '380px', position: 'absolute', top: '70px', right: '1.5rem', maxHeight: '70vh', zIndex: 1000, padding: '1rem', background: 'linear-gradient(145deg, rgba(24, 40, 56, 0.98), rgba(10, 18, 27, 0.99))', border: '1px solid rgba(146, 173, 196, 0.24)', borderRadius: '0.85rem', boxShadow: '0 12px 30px rgba(0, 0, 0, 0.3)' }}>
+                    <article className="history-modal notif-modal" onClick={(e) => e.stopPropagation()} style={{ width: 'min(380px, calc(100vw - 2rem))', position: 'absolute', top: '70px', right: 'clamp(0.5rem, 2vw, 1.5rem)', maxHeight: '70vh', zIndex: 1000, padding: '1rem', background: 'linear-gradient(145deg, rgba(24, 40, 56, 0.98), rgba(10, 18, 27, 0.99))', border: '1px solid rgba(146, 173, 196, 0.24)', borderRadius: '0.85rem', boxShadow: '0 12px 30px rgba(0, 0, 0, 0.3)' }}>
                     <div className="progress-card__head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 0.8rem 0', paddingBottom: '0.4rem', borderBottom: '1px solid rgba(146, 173, 196, 0.16)' }}>
                         <h3 style={{ margin: 0, fontSize: '0.95rem' }}>
                             <span className="notif-title-icon" aria-hidden="true" style={{ marginRight: '0.5rem' }}>

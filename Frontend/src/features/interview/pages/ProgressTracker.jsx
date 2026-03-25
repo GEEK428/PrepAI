@@ -264,7 +264,7 @@ const ProgressTracker = () => {
             <Sidebar />
 
             <section className="dashboard-main progress-main">
-                <header className="dashboard-header progress-head sleek" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <header className="dashboard-header progress-head sleek">
                     <div>
                         <p className="dashboard-kicker">Analytics Dashboard</p>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
