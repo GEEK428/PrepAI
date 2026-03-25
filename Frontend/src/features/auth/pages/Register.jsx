@@ -139,7 +139,7 @@ const Register = () => {
                                     />
                                     <button
                                         type="button"
-                                        className="toggle-password"
+                                        className="eye-btn"
                                         onClick={() => setShowPassword(!showPassword)}
                                         aria-label={showPassword ? "Hide password" : "Show password"}
                                     >
@@ -148,10 +148,19 @@ const Register = () => {
                                         </span>
                                     </button>
                                 </div>
-                                <div className={`password-meter ${password.length > 0 ? strength : ""}`}>
-                                    <div className="meter-bar"><div className="fill"></div></div>
+                                <div className="strength-row">
+                                    <div className="strength-bars">
+                                        <span className={score >= 1 ? `active--${strength}` : ""}></span>
+                                        <span className={score >= 3 ? `active--${strength}` : ""}></span>
+                                        <span className={score >= 5 ? `active--strong` : ""}></span>
+                                    </div>
+                                    {password.length > 0 && (
+                                        <p className={`strength-label strength-label--${strength}`}>
+                                            {strength === "weak" ? "Weak" : strength === "medium" ? "Good" : "Strong"}
+                                        </p>
+                                    )}
                                 </div>
-                                <ul className="password-hints">
+                                <ul className="password-rules">
                                     <li className={passwordChecks.length ? "met" : ""}>8+ characters</li>
                                     <li className={passwordChecks.upper && passwordChecks.lower ? "met" : ""}>Upper & lowercase</li>
                                     <li className={passwordChecks.number ? "met" : ""}>At least 1 number</li>

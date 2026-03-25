@@ -145,7 +145,9 @@ const Login = () => {
                                     onClick={() => setShowPassword((v) => !v)}
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
-                                    {showPassword ? "Hide" : "Show"}
+                                    <span className="material-symbols-outlined">
+                                        {showPassword ? "visibility_off" : "visibility"}
+                                    </span>
                                 </button>
                             </div>
                         </div>
