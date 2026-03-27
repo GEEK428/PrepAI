@@ -4,6 +4,7 @@ const WordExtractor = require("word-extractor")
 const os = require("os")
 const fs = require("fs/promises")
 const path = require("path")
+const crypto = require("crypto")
 const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
@@ -25,9 +26,9 @@ async function extractResumeTextFromUpload(file) {
     const extension = path.extname(file?.originalname || "").toLowerCase()
     const mimeType = file?.mimetype || ""
 
-    const isPdf = mimeType === "application/pdf" || extension === ".pdf"
+    const isPdf  = mimeType === "application/pdf" || extension === ".pdf"
     const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || extension === ".docx"
-    const isDoc = mimeType === "application/msword" || extension === ".doc"
+    const isDoc  = mimeType === "application/msword" || extension === ".doc"
 
     if (isPdf) {
         const resumeContent = await (new pdfParse.PDFParse(Uint8Array.from(file.buffer))).getText()
@@ -45,7 +46,6 @@ async function extractResumeTextFromUpload(file) {
             os.tmpdir(),
             `intelliprep_${Date.now()}_${Math.random().toString(36).slice(2)}.doc`
         )
-
         try {
             await fs.writeFile(tempPath, file.buffer)
             const extractedDoc = await extractor.extract(tempPath)
@@ -60,33 +60,25 @@ async function extractResumeTextFromUpload(file) {
 
 
 /**
- * @description Controller to generate interview report based on user self description, resume and job description.
+ * @description Generate interview report from resume + job description.
  */
 async function generateInterViewReportController(req, res) {
     const { selfDescription, jobDescription } = req.body
     const resumeFile = req.file
 
     if (!jobDescription?.trim()) {
-        return res.status(400).json({
-            message: "Job description is required."
-        })
+        return res.status(400).json({ message: "Job description is required." })
     }
-
     if (!resumeFile && !selfDescription?.trim()) {
-        return res.status(400).json({
-            message: "Please upload a resume or provide self description."
-        })
+        return res.status(400).json({ message: "Please upload a resume or provide self description." })
     }
 
     let resumeText = ""
-
     if (resumeFile) {
         try {
             resumeText = await extractResumeTextFromUpload(resumeFile)
         } catch (error) {
-            return res.status(400).json({
-                message: error.message || "Unable to parse uploaded resume."
-            })
+            return res.status(400).json({ message: error.message || "Unable to parse uploaded resume." })
         }
     }
 
@@ -108,22 +100,18 @@ async function generateInterViewReportController(req, res) {
         message: "Interview report generated successfully.",
         interviewReport
     })
-
 }
 
+
 /**
- * @description Controller to get interview report by interviewId.
+ * @description Get interview report by ID.
  */
 async function getInterviewReportByIdController(req, res) {
-
     const { interviewId } = req.params
-
     const interviewReport = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id })
 
     if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
-        })
+        return res.status(404).json({ message: "Interview report not found." })
     }
 
     res.status(200).json({
@@ -132,18 +120,16 @@ async function getInterviewReportByIdController(req, res) {
     })
 }
 
+
 /**
- * @description Controller to get insights for a specific interview report.
+ * @description Get insights (topSkills + criticalGaps) for a report.
  */
 async function getInterviewInsightsController(req, res) {
     const { interviewId } = req.params
-
     const interviewReport = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id })
 
     if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
-        })
+        return res.status(404).json({ message: "Interview report not found." })
     }
 
     const { topSkills, criticalGaps } = extractInsights({
@@ -159,11 +145,14 @@ async function getInterviewInsightsController(req, res) {
 }
 
 
-/** 
- * @description Controller to get all interview reports of logged in user.
+/**
+ * @description Get all interview reports of the logged-in user.
  */
 async function getAllInterviewReportsController(req, res) {
-    const interviewReports = await interviewReportModel.find({ user: req.user.id }).sort({ createdAt: -1 }).select("-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan")
+    const interviewReports = await interviewReportModel
+        .find({ user: req.user.id })
+        .sort({ createdAt: -1 })
+        .select("-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan -resumePdfCache")
 
     res.status(200).json({
         message: "Interview reports fetched successfully.",
@@ -171,8 +160,9 @@ async function getAllInterviewReportsController(req, res) {
     })
 }
 
+
 /**
- * @description Controller to delete interview report by interviewId.
+ * @description Delete interview report by ID.
  */
 async function deleteInterviewReportController(req, res) {
     const { interviewId } = req.params
@@ -183,48 +173,88 @@ async function deleteInterviewReportController(req, res) {
     })
 
     if (!deleted) {
-        return res.status(404).json({
-            message: "Interview report not found."
-        })
+        return res.status(404).json({ message: "Interview report not found." })
     }
 
-    return res.status(200).json({
-        message: "Interview report deleted successfully."
-    })
+    return res.status(200).json({ message: "Interview report deleted successfully." })
 }
 
 
 /**
- * @description Controller to generate resume PDF based on user self description, resume and job description.
+ * @description Generate (or return cached) resume PDF for an interview report.
+ *
+ * Cache logic:
+ *   Computes SHA-256 of (resume text + jobDescription + sorted topSkills).
+ *   Hash MATCH  → return stored Buffer, skip AI + Puppeteer entirely.
+ *   Hash MISS   → call AI to generate structured data, render template,
+ *                 convert to PDF, persist buffer + new hash on the report.
+ *
+ *   Skills check: AI identifies skills in the JD that are missing from the
+ *   candidate's existing skills and injects them (no duplicates).
  */
 async function generateResumePdfController(req, res) {
     const { interviewReportId } = req.params
 
-    const interviewReport = await interviewReportModel.findById(interviewReportId)
+    const interviewReport = await interviewReportModel.findOne({
+        _id: interviewReportId,
+        user: req.user.id
+    })
 
     if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
-        })
+        return res.status(404).json({ message: "Interview report not found." })
     }
 
-    const { resume, jobDescription, selfDescription } = interviewReport
+    const { resume, jobDescription, selfDescription, topSkills } = interviewReport
+
+    /* ── Build stable cache key ──────────────────────────────────
+       Sort topSkills so order changes don't bust the cache.
+       selfDescription is intentionally excluded — resume + JD define the output.
+    ─────────────────────────────────────────────────────────── */
+    const sortedSkills = [...(topSkills || [])].sort().join("|")
+    const rawKey = `${resume || ""}__${jobDescription || ""}__${sortedSkills}`
+    const currentHash = crypto.createHash("sha256").update(rawKey).digest("hex")
+
+    /* ── Cache HIT ─────────────────────────────────────────────── */
+    if (
+        interviewReport.resumeInputHash === currentHash &&
+        interviewReport.resumePdfCache &&
+        interviewReport.resumePdfCache.length > 0
+    ) {
+        console.log(`[ResumeBuilder] Cache HIT — report ${interviewReportId}`)
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`,
+            "X-Cache": "HIT"
+        })
+        return res.send(interviewReport.resumePdfCache)
+    }
+
+    /* ── Cache MISS: generate fresh PDF ────────────────────────── */
+    console.log(`[ResumeBuilder] Cache MISS — generating PDF for report ${interviewReportId}`)
 
     const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
 
+    /* Persist asynchronously so we don't slow down the response */
+    interviewReportModel.findByIdAndUpdate(interviewReportId, {
+        resumePdfCache: pdfBuffer,
+        resumeInputHash: currentHash
+    }).catch(err => console.error("[ResumeBuilder] Failed to cache PDF:", err))
+
     res.set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`
+        "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`,
+        "X-Cache": "MISS"
     })
-
     res.send(pdfBuffer)
 }
 
+
 /**
- * @description Controller to get aggregated dashboard stats for radar chart
+ * @description Get aggregated dashboard stats for radar chart.
  */
 async function getDashboardStatsController(req, res) {
-    const reports = await interviewReportModel.find({ user: req.user.id })
+    const reports = await interviewReportModel
+        .find({ user: req.user.id })
         .select("topSkills skillGaps")
         .sort({ createdAt: -1 })
         .limit(10)
@@ -237,7 +267,6 @@ async function getDashboardStatsController(req, res) {
             const name = typeof skill === "string" ? skill : (skill.skill || skill.name)
             if (name) strengthsFrequency[name] = (strengthsFrequency[name] || 0) + 1
         })
-
         ;(report.skillGaps || []).forEach(gap => {
             const name = typeof gap === "string" ? gap : (gap.skill || gap.name)
             if (name) gapsFrequency[name] = (gapsFrequency[name] || 0) + 1

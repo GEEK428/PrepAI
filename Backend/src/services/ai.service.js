@@ -9,27 +9,27 @@ const ai = new GoogleGenAI({
 
 
 const interviewReportSchema = z.object({
-    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job describe"),
+    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job description"),
     technicalQuestions: z.array(z.object({
-        question: z.string().describe("The technical question can be asked in the interview"),
+        question:  z.string().describe("The technical question can be asked in the interview"),
         intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer: z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
+        answer:    z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
     })).describe("Technical questions that can be asked in the interview along with their intention and how to answer them"),
     behavioralQuestions: z.array(z.object({
-        question: z.string().describe("The technical question can be asked in the interview"),
+        question:  z.string().describe("The technical question can be asked in the interview"),
         intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer: z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
+        answer:    z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
     })).describe("Behavioral questions that can be asked in the interview along with their intention and how to answer them"),
     skillGaps: z.array(z.object({
-        skill: z.string().describe("The skill which the candidate is lacking"),
-        severity: z.enum([ "low", "medium", "high" ]).describe("The severity of this skill gap, i.e. how important is this skill for the job and how much it can impact the candidate's chances")
+        skill:    z.string().describe("The skill which the candidate is lacking"),
+        severity: z.enum(["low", "medium", "high"]).describe("The severity of this skill gap")
     })).describe("List of skill gaps in the candidate's profile along with their severity"),
     topSkills: z.array(z.string()).describe("Top 3-6 skills where candidate profile strongly matches the job description"),
     preparationPlan: z.array(z.object({
-        day: z.number().describe("The day number in the preparation plan, starting from 1"),
-        focus: z.string().describe("The main focus of this day in the preparation plan, e.g. data structures, system design, mock interviews etc."),
-        tasks: z.array(z.string()).describe("List of tasks to be done on this day to follow the preparation plan, e.g. read a specific book or article, solve a set of problems, watch a video etc.")
-    })).describe("A day-wise preparation plan for the candidate to follow in order to prepare for the interview effectively"),
+        day:   z.number().describe("The day number in the preparation plan, starting from 1"),
+        focus: z.string().describe("The main focus of this day in the preparation plan"),
+        tasks: z.array(z.string()).describe("List of tasks to be done on this day")
+    })).describe("A day-wise preparation plan for the candidate"),
     title: z.string().describe("The title of the job for which the interview report is generated"),
 })
 
@@ -39,17 +39,14 @@ const noteAnswerSchema = z.object({
 })
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
-
-
     const prompt = `Generate an interview report for a candidate with the following details:
-                        Resume: ${resume}
-                        Self Description: ${selfDescription}
-                        Job Description: ${jobDescription}
-                        Return topSkills as 3 to 6 concise skill names that best match this job description.
+Resume: ${resume}
+Self Description: ${selfDescription}
+Job Description: ${jobDescription}
+Return topSkills as 3 to 6 concise skill names that best match this job description.
 `
-
     const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -58,10 +55,171 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
     })
 
     return JSON.parse(response.text)
-
-
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESUME STRUCTURED DATA SCHEMA
+   AI extracts structured data, then we render into a fixed template.
+═══════════════════════════════════════════════════════════════════ */
+const resumeDataSchema = z.object({
+    name:     z.string().describe("Full name of the candidate"),
+    email:    z.string().describe("Email address, empty string if not found"),
+    phone:    z.string().describe("Phone number, empty string if not found"),
+    linkedin: z.string().describe("LinkedIn profile URL or username, empty string if not found"),
+    github:   z.string().describe("GitHub profile URL or username, empty string if not found"),
+    leetcode: z.string().describe("LeetCode profile URL or username, empty string if not found"),
+    portfolio:z.string().describe("Portfolio or personal website URL, empty string if not found"),
+
+    education: z.array(z.object({
+        institution: z.string().describe("Name of the college, university or school"),
+        degree:      z.string().describe("Degree and field of study, e.g. B.Tech Computer Science"),
+        years:       z.string().describe("Year range, e.g. 2020 – 2024 or 2024"),
+        gpa:         z.string().describe("GPA or percentage if mentioned, empty string otherwise")
+    })).describe("Education history, most recent first"),
+
+    skills: z.array(z.object({
+        category: z.string().describe("Skill category label, e.g. Languages, Frameworks, Tools, Databases"),
+        items:    z.array(z.string()).describe("List of skills in this category")
+    })).describe("Skills grouped by category"),
+
+    projects: z.array(z.object({
+        name:        z.string().describe("Project name"),
+        description: z.string().describe("One to two sentence description of the project and its impact. Include a quantified metric if available, e.g. reduced latency by 40%, used by 500+ users."),
+        techStack:   z.array(z.string()).describe("Technologies used in this project"),
+        link:        z.string().describe("Project URL or GitHub link if available, empty string otherwise")
+    })).describe("Projects the candidate has built, most impressive first, max 4"),
+
+    experience: z.array(z.object({
+        company:     z.string().describe("Company or organization name"),
+        role:        z.string().describe("Job title or role"),
+        duration:    z.string().describe("Duration, e.g. Jun 2023 – Aug 2023"),
+        bullets:     z.array(z.string()).describe("2-3 achievement-focused bullet points with quantified impact where possible")
+    })).describe("Work experience, internships, most recent first, max 3"),
+
+    achievements: z.array(z.string()).describe("Awards, certifications, competitive programming ranks, open source contributions – max 4 items"),
+
+    /* Skills to ADD from job description that are NOT already present */
+    missingJobSkills: z.array(z.string()).describe("Skills explicitly required in the job description that are NOT in the candidate's existing skills list. Max 6. Only add if genuinely missing.")
+})
+
+/* ═══════════════════════════════════════════════════════════════════
+   LATEX-INSPIRED HTML TEMPLATE
+   Fixed structure: Name → Links → Education → Skills → Projects
+                    → Experience → Achievements
+   Always 1 A4 page, ultra-compact, professional.
+═══════════════════════════════════════════════════════════════════ */
+function buildResumeHtml(data) {
+    const { name, email, phone, linkedin, github, leetcode, portfolio,
+            education, skills, projects, experience, achievements } = data
+
+    /* ── helpers ── */
+    const esc = (s) => (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    const linkTag = (label, url) => {
+        if (!url) return ""
+        const href = url.startsWith("http") ? url : `https://${url}`
+        return `<a href="${esc(href)}" style="color:#111;text-decoration:none;">${esc(label || url)}</a>`
+    }
+
+    const contactParts = [
+        email    ? `<a href="mailto:${esc(email)}" style="color:#111;text-decoration:none;">${esc(email)}</a>` : "",
+        phone    ? esc(phone)    : "",
+        linkedin ? linkTag("LinkedIn", linkedin) : "",
+        github   ? linkTag("GitHub",   github)   : "",
+        leetcode ? linkTag("LeetCode", leetcode) : "",
+        portfolio? linkTag("Portfolio",portfolio) : ""
+    ].filter(Boolean)
+
+    const hr = `<hr style="border:none;border-top:1px solid #222;margin:3pt 0 2pt;">`
+
+    /* ── education ── */
+    const eduHtml = (education || []).map(e => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1pt;">
+            <span><b>${esc(e.institution)}</b> — <span style="font-style:italic;">${esc(e.degree)}</span>${e.gpa ? ` • GPA: ${esc(e.gpa)}` : ""}</span>
+            <span style="white-space:nowrap;font-size:7pt;color:#444;">${esc(e.years)}</span>
+        </div>`).join("")
+
+    /* ── skills ── */
+    const skillsHtml = (skills || []).map(s =>
+        `<span><b>${esc(s.category)}:</b> ${s.items.map(esc).join(", ")}</span>`
+    ).join(" &nbsp;|&nbsp; ")
+
+    /* ── projects ── */
+    const projHtml = (projects || []).slice(0,4).map(p => {
+        const techStr = (p.techStack || []).length ? `<span style="font-style:italic;color:#444;">${p.techStack.map(esc).join(", ")}</span>` : ""
+        const lnk = p.link ? ` <a href="${p.link.startsWith("http")?p.link:"https://"+p.link}" style="color:#333;font-size:6.5pt;">[link]</a>` : ""
+        return `
+        <div style="margin-bottom:3pt;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <b>${esc(p.name)}${lnk}</b> ${techStr}
+            </div>
+            <div style="margin-left:8pt;">${esc(p.description)}</div>
+        </div>`
+    }).join("")
+
+    /* ── experience ── */
+    const expHtml = (experience || []).slice(0,3).map(e => `
+        <div style="margin-bottom:3pt;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <span><b>${esc(e.role)}</b> — <i>${esc(e.company)}</i></span>
+                <span style="white-space:nowrap;font-size:7pt;color:#444;">${esc(e.duration)}</span>
+            </div>
+            <ul style="margin:1pt 0 0 12pt;padding:0;">${(e.bullets||[]).map(b=>`<li>${esc(b)}</li>`).join("")}</ul>
+        </div>`).join("")
+
+    /* ── achievements ── */
+    const achHtml = (achievements || []).slice(0,4)
+        .map(a => `<li>${esc(a)}</li>`).join("")
+
+    const sectionTitle = (t) =>
+        `<div style="font-size:8pt;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-bottom:0.8pt solid #111;margin:4pt 0 2pt;">${t}</div>`
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; }
+  @page { size: A4; margin: 10mm 12mm; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 8.5pt;
+    line-height: 1.25;
+    color: #111;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+  }
+  a { color: #111; text-decoration: none; }
+  ul { margin: 0; padding-left: 12pt; }
+  li { margin-bottom: 1pt; }
+  b { font-weight: 700; }
+</style>
+</head>
+<body>
+<!-- NAME -->
+<div style="text-align:center;margin-bottom:2pt;">
+    <div style="font-size:18pt;font-weight:700;letter-spacing:0.02em;">${esc(name)}</div>
+    <div style="font-size:7.5pt;margin-top:2pt;color:#222;">
+        ${contactParts.join(" &nbsp;•&nbsp; ")}
+    </div>
+</div>
+
+${hr}
+
+${education?.length ? sectionTitle("Education") + eduHtml : ""}
+
+${skills?.length ? sectionTitle("Skills") + `<div style="font-size:7.8pt;line-height:1.4;">${skillsHtml}</div>` : ""}
+
+${projects?.length ? sectionTitle("Projects") + projHtml : ""}
+
+${experience?.length ? sectionTitle("Experience") + expHtml : ""}
+
+${achievements?.length ? sectionTitle("Achievements") + `<ul style="margin:0 0 0 12pt;">${achHtml}</ul>` : ""}
+
+</body>
+</html>`
+}
 
 
 async function generatePdfFromHtml(htmlContent) {
@@ -75,7 +233,9 @@ async function generatePdfFromHtml(htmlContent) {
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "networkidle0" });
         const pdfBuffer = await page.pdf({
-            format: "A4", margin: { top: "20mm", bottom: "20mm", left: "15mm", right: "15mm" }
+            format: "A4",
+            margin: { top: "10mm", bottom: "10mm", left: "12mm", right: "12mm" },
+            printBackground: true
         });
         return pdfBuffer;
     } finally {
@@ -83,58 +243,67 @@ async function generatePdfFromHtml(htmlContent) {
     }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN EXPORT: generateResumePdf
+   1. Ask AI to extract structured data from resume / self-desc
+   2. AI identifies missing skills from job description
+   3. Inject missing skills into the skills sections
+   4. Render fixed LaTeX-style HTML template
+   5. Convert to PDF via Puppeteer
+═══════════════════════════════════════════════════════════════ */
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
 
-    const resumePdfSchema = z.object({
-        html: z.string().describe("The HTML content of the resume which can be converted to PDF using any library like puppeteer")
-    })
+    const prompt = `You are a professional resume parser and optimizer.
 
-    const prompt = `Generate a professional single-page resume using only the information provided below.
+Extract all information from the candidate data below into the structured schema.
 
-Candidate Data:
-- Resume Text: ${resume}
-- Self Description: ${selfDescription}
-- Target Job Description: ${jobDescription}
+CANDIDATE DATA:
+Resume Text: ${resume || "(none)"}
+Self Description: ${selfDescription || "(none)"}
+Job Description: ${jobDescription}
 
-Hard Rules:
-1) Output MUST fit within exactly one A4 page when converted to PDF. Keep formatting incredibly tight and concise.
-2) Do NOT invent or hallucinate any detail. Use only facts from Resume Text and Self Description.
-3) Keep the writing brief, quantified, and impact-focused.
-4) If a section has no reliable information, omit or keep it extremely short rather than fabricating.
-5) Use clean vertical tight spacing, proper hierarchical headings, and minimal bullet points.
-6) For Personal Details, explicitly extract and print the candidate's Name at the very top as a huge header, followed immediately below by a tight horizontal row containing their LinkedIn, LeetCode, GitHub links, Email, Phone Number, and any other contact details found.
-
-Strict adherence to section order (and ONLY this order):
-1. Personal Details (Name exactly at top, then LinkedIn/LeetCode/Github/contact right below)
-2. Education
-3. Skills
-4. Projects
-5. Experience
-6. Achievements
-
-Output format:
-- Return strictly JSON with one field: "html"
-- "html" must be complete resume HTML suitable for PDF generation.
-- The HTML MUST include inline CSS styles with incredibly clean, ultra-compact minimal styling (e.g. margin/padding: 0) to guarantee it stays strictly on one page mostly.
-`
+RULES:
+1. Do NOT invent or hallucinate ANY detail. Only use facts from the data above.
+2. For projects: add a realistic quantified metric to the description if one can be reasonably inferred (e.g. "built for 200+ users", "reduced API calls by ~30%"). Do NOT fabricate specific numbers not implied by the text.
+3. For experience bullet points: make them achievement-focused and concise.
+4. In missingJobSkills: list ONLY skills the job description explicitly requires that are NOT already in the candidate's skills. Max 6. Keep them concise (e.g. "Docker", "GraphQL").
+5. Keep all text tight and concise — this must fit on one A4 page.`
 
     const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(resumePdfSchema),
+            responseSchema: zodToJsonSchema(resumeDataSchema),
         }
     })
 
+    const data = JSON.parse(response.text)
 
-    const jsonContent = JSON.parse(response.text)
+    /* ── Inject missing skills into the Skills section ── */
+    if (data.missingJobSkills && data.missingJobSkills.length > 0) {
+        const allExisting = (data.skills || []).flatMap(s => s.items.map(i => i.toLowerCase()))
+        const toAdd = data.missingJobSkills.filter(s => !allExisting.includes(s.toLowerCase()))
 
-    const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
+        if (toAdd.length > 0) {
+            // Try to find a "Tools" or "Other" category to append to, else create one
+            const targetCat = data.skills.find(s =>
+                /tools?|other|misc|additional/i.test(s.category)
+            )
+            if (targetCat) {
+                targetCat.items = [...targetCat.items, ...toAdd]
+            } else {
+                data.skills.push({ category: "Additional", items: toAdd })
+            }
+        }
+    }
 
+    const html = buildResumeHtml(data)
+    const pdfBuffer = await generatePdfFromHtml(html)
     return pdfBuffer
-
 }
+
 
 async function generateNoteAnswer({ domain, subdomain, question, sourceTag = "", difficulty = "medium" }) {
     const prompt = `
@@ -153,9 +322,8 @@ Instructions:
 - Avoid very long output.
 - Return both answerText and answerHtml.
 `
-
     const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
             responseMimeType: "application/json",

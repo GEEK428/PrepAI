@@ -1,13 +1,14 @@
 import React, { useState } from "react"
 import { useNavigate, useLocation } from "react-router"
 import { useAuth } from "../../auth/hooks/useAuth"
+import TopBar from "./TopBar"
 
 const Sidebar = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const { handleLogout } = useAuth()
     const [isMobileOpen, setIsMobileOpen] = useState(false)
-    
+
     const onLogout = async () => {
         const result = await handleLogout()
         if (result?.ok) navigate("/login")
@@ -20,12 +21,12 @@ const Sidebar = () => {
     }
 
     const navItems = [
-        { path: "/dashboard", icon: "dashboard", label: "Dashboard" },
-        { path: "/", icon: "analytics", label: "Resume Analysis" },
-        { path: "/resume-builder", icon: "edit_document", label: "Resume Builder" },
-        { path: "/notes", icon: "book", label: "Notes / Prep Space" },
-        { path: "/progress-tracker", icon: "monitoring", label: "Track Your Progress" },
-        { path: "/settings", icon: "settings", label: "Settings" },
+        { path: "/dashboard",        icon: "dashboard",       label: "Dashboard" },
+        { path: "/",                 icon: "analytics",       label: "Resume Analysis" },
+        { path: "/resume-builder",   icon: "edit_document",   label: "Resume Builder" },
+        { path: "/notes",            icon: "book",            label: "Notes / Prep Space" },
+        { path: "/progress-tracker", icon: "monitoring",      label: "Track Your Progress" },
+        { path: "/settings",         icon: "settings",        label: "Settings" },
     ];
 
     const handleNav = (path) => {
@@ -35,51 +36,65 @@ const Sidebar = () => {
 
     return (
         <>
-            {/* Mobile Top Bar */}
+            {/* ── Unified Top Bar (visible on mobile, optional on desktop) ── */}
             <div className="mobile-top-bar">
-                <div className="brand-block-mobile">
-                    <img className="brand-mark" src="/mind-icon.svg" alt="IntelliPrep logo" onError={(e) => { e.target.style.display = 'none' }} />
-                    <h2>IntelliPrep</h2>
-                </div>
-                <button className="hamburger-btn" onClick={() => setIsMobileOpen(true)}>
-                    <span className="material-symbols-outlined">menu</span>
-                </button>
+                <TopBar onMenuOpen={() => setIsMobileOpen(true)} />
             </div>
 
-            {/* Mobile Overlay */}
+            {/* ── Overlay backdrop ── */}
             {isMobileOpen && (
-                <div className="mobile-sidebar-overlay" onClick={() => setIsMobileOpen(false)}></div>
+                <div
+                    className="mobile-sidebar-overlay"
+                    onClick={() => setIsMobileOpen(false)}
+                />
             )}
 
-            {/* Default Sidebar */}
+            {/* ── Sidebar (desktop: always visible, mobile: slide-in) ── */}
             <aside className={`dashboard-sidebar ${isMobileOpen ? 'open' : ''}`}>
+
+                {/* Sidebar header: logo + close btn */}
                 <div className="sidebar-header-mobile">
                     <div className="brand-block">
-                        <img className="brand-mark" src="/mind-icon.svg" alt="IntelliPrep logo" onError={(e) => { e.target.style.display = 'none' }} />
+                        <img
+                            className="brand-mark"
+                            src="/mind-icon.svg"
+                            alt="IntelliPrep logo"
+                            onError={(e) => { e.target.style.display = 'none' }}
+                        />
                         <h2>IntelliPrep</h2>
                     </div>
-                    <button className="close-sidebar-btn" onClick={() => setIsMobileOpen(false)}>
+                    <button
+                        className="close-sidebar-btn"
+                        onClick={() => setIsMobileOpen(false)}
+                        aria-label="Close menu"
+                    >
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
-                
-                <nav className="sidebar-nav" style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+
+                <nav className="sidebar-nav">
                     {navItems.map(item => (
-                        <button 
+                        <button
                             key={item.path}
-                            className={`nav-item ${isActive(item.path) ? "nav-item--active" : ""}`} 
-                            type="button" 
-                            onClick={() => handleNav(item.path)} 
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}
+                            className={`nav-item ${isActive(item.path) ? "nav-item--active" : ""}`}
+                            type="button"
+                            onClick={() => handleNav(item.path)}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>
+                                {item.icon}
+                            </span>
                             {item.label}
                         </button>
                     ))}
                 </nav>
-                
+
                 <div className="sidebar-footer" style={{ marginTop: 'auto', marginBottom: '2rem' }}>
-                    <button className="logout-btn" onClick={onLogout} type="button" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                    <button
+                        className="logout-btn"
+                        onClick={onLogout}
+                        type="button"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}
+                    >
                         <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>logout</span>
                         Logout
                     </button>

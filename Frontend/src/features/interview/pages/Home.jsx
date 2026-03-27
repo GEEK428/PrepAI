@@ -116,8 +116,14 @@ const Home = () => {
                                     />
                                 </label>
                                 {selectedFile && <div className="file-name">{selectedFile} <button onClick={clearSelectedResume}>✕</button></div>}
-                                
-                                <div className="self-desc-section" style={{marginTop: '1rem'}}>
+
+                                <div className="or-divider">
+                                    <span></span>
+                                    <p>OR</p>
+                                    <span></span>
+                                </div>
+
+                                <div className="self-desc-section">
                                     <h3 className="section-label">
                                         <span className="material-symbols-outlined" style={{color: '#ffb454', fontSize: '1rem'}}>edit_note</span>
                                         QUICK SELF-DESCRIPTION

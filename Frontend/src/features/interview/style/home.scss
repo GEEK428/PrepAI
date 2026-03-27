@@ -34,6 +34,54 @@
     }
 }
 
+/* Sidebar header row (contains brand + close button on mobile) */
+.sidebar-header-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(144, 173, 198, 0.1);
+
+    .brand-block {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+}
+
+.close-sidebar-btn {
+    display: none; /* shown only on mobile */
+    background: transparent;
+    border: none;
+    color: #eaf2f8;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem;
+    cursor: pointer;
+    border-radius: 0.4rem;
+    transition: background 0.2s;
+
+    &:hover { background: rgba(144, 173, 198, 0.15); }
+    span { font-size: 1.8rem; }
+}
+
+.hamburger-btn {
+    background: transparent;
+    border: none;
+    color: #eaf2f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 0.4rem;
+    transition: background 0.2s;
+
+    &:hover { background: rgba(144, 173, 198, 0.15); }
+    span { font-size: 1.8rem; }
+}
+
+
 .brand-mark {
     width: 1.7rem;
     height: 1.7rem;
@@ -103,21 +151,61 @@
     gap: 0.9rem;
 }
 
-/* NEW TOP BAR STYLES */
-.dashboard-header.top-bar {
+/* ═══════════════════════════════════════════════
+   UNIFIED APP TOP BAR
+   Always visible. On desktop shows page title +
+   user info. On mobile it's inside mobile-top-bar.
+   ═══════════════════════════════════════════════ */
+.app-top-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.8rem 2rem;
-    background: transparent;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    margin-top: -1.15rem;
-    margin-left: -1.25rem;
-    margin-right: -1.25rem;
+    padding: 0.65rem 1.4rem;
+    background: rgba(9, 13, 18, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
+    width: 100%;
+
+    /* Remove negative margins — top bar is now self-contained */
+    margin: 0;
 }
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+
+    .top-bar-hamburger {
+        display: none; /* shown only on mobile via media query */
+        background: none;
+        border: none;
+        color: #eaf2f8;
+        cursor: pointer;
+        padding: 0.2rem;
+        border-radius: 0.3rem;
+        &:hover { background: rgba(255,255,255,0.06); }
+        span { font-size: 1.5rem; }
+    }
+}
+
+.top-bar-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #eaf2f8;
+    letter-spacing: -0.01em;
+    line-height: 1;
+}
+
+/* Old class kept for backward compat */
+.dashboard-header.top-bar {
+    display: none; /* replaced by .app-top-bar */
+}
+
 
 .search-bar {
     display: flex;
@@ -1293,30 +1381,338 @@
 }
 
 
-/* HEADER CRAMP FIX */
-@media (max-width: 850px) {
-    .dashboard-header {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 0.8rem !important;
-        margin-bottom: 1rem !important;
+
+/* ═══════════════════════════════════════
+   OR DIVIDER (Resume Analysis)
+   ═══════════════════════════════════════ */
+.or-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.9rem 0;
+
+    span {
+        flex: 1;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
     }
+
+    p {
+        margin: 0;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #556272;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+}
+
+/* ═══════════════════════════════════════
+   PAGE CONTENT CONTAINER
+   Max-width + horizontal centering so
+   content never stretches too wide.
+   ═══════════════════════════════════════ */
+.home-content-container,
+.page-content {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
+    box-sizing: border-box;
+}
+
+/* ════════════════════════════════════════════════════════
+   MOBILE TOP BAR – now wraps <TopBar onMenuOpen=.../>
+   ════════════════════════════════════════════════════════ */
+.mobile-top-bar {
+    display: none;  /* hidden on desktop */
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    width: 100%;
+
+    /* On mobile the inner app-top-bar fills this */
+    .app-top-bar {
+        position: static; /* parent handles sticky */
+        width: 100%;
+    }
+
+    .top-bar-hamburger {
+        display: flex !important; /* show hamburger on mobile */
+    }
+}
+
+/* ════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   ════════════════════════════════════════════════════════ */
+
+/* ── Tablet / small laptop (≤ 850px) ── */
+@media (max-width: 850px) {
+
+    /* Layout: sidebar hidden, full-width content */
+    .dashboard-page {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mobile-top-bar {
+        display: block; /* show the bar with hamburger */
+    }
+
+    /* Desktop top bar (inside dashboard-main) is hidden on mobile
+       because topbar is already in mobile-top-bar */
+    .dashboard-main > .app-top-bar {
+        display: none;
+    }
+
+    /* Sidebar: slide-in drawer */
+    .dashboard-sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        width: 270px;
+        z-index: 100;
+        transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        padding-top: 1.5rem;
+
+        &.open {
+            left: 0;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.55);
+        }
+    }
+
+    .sidebar-header-mobile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+
+        .brand-block {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+    }
+
+    .close-sidebar-btn { display: flex; }
+
+    .mobile-sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(2px);
+        z-index: 90;
+    }
+
+    .dashboard-main {
+        flex: 1;
+        padding: 0.75rem 1rem;
+    }
+
+    /* Page header shrinks */
+    .page-header {
+        margin-bottom: 1.2rem;
+
+        .kicker { font-size: 0.65rem; margin-bottom: 0.3rem; }
+        h1 { font-size: 1.3rem; }
+        .subtitle { font-size: 0.78rem; max-width: 100%; }
+    }
+
+    /* Analysis builder stacks */
+    .analysis-builder__main {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .analysis-builder {
+        margin-bottom: 1.5rem;
+    }
+
+    .analysis-builder__footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .generate-btn.hero-btn {
+        width: 100%;
+        justify-content: center;
+        font-size: 0.9rem;
+        padding: 0.7rem 1.2rem;
+    }
+
+    /* Stats grid: 2 cols */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Panels stack */
+    .dashboard-panels {
+        grid-template-columns: 1fr;
+    }
+
+    /* Recent plans list: hide readiness col */
+    .readiness-col { display: none; }
+
+    .plan-item {
+        grid-template-columns: auto 1fr auto;
+    }
+
+    /* Recent plans heading */
+    .recent-plans-panel .panel-heading {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .view-all-btn { width: 100%; justify-content: center; }
+
+    /* Dashboard header */
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+    }
+
     .head-actions {
         margin-left: 0 !important;
         width: 100%;
         justify-content: space-between;
     }
-    .dashboard-header > div {
-        width: 100% !important;
-    }
-    .dashboard-header h1 {
-        font-size: 1.15rem !important;
-    }
+
+    .dashboard-header h1 { font-size: 1.1rem; }
+
     .dashboard-subtitle {
-        max-width: 100% !important;
-        line-height: 1.4 !important;
-        font-size: 0.76rem !important;
+        max-width: 100%;
+        line-height: 1.4;
+        font-size: 0.75rem;
         margin-top: 0.1rem;
     }
+
+    /* insight columns single col */
+    .insight-columns.compact {
+        grid-template-columns: 1fr;
+    }
+
+    .radar-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Phones (≤ 600px) ── */
+@media (max-width: 600px) {
+
+    .dashboard-main {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .home-content-container,
+    .page-content {
+        padding: 0.5rem 0;
+    }
+
+    .page-header {
+        margin-bottom: 0.8rem;
+
+        .kicker { font-size: 0.6rem; }
+        h1 { font-size: 1.1rem; line-height: 1.2; }
+        .subtitle { font-size: 0.72rem; }
+    }
+
+    /* Stats: 2 cols still but smaller */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.4rem !important;
+    }
+
+    .stat-card {
+        padding: 0.6rem !important;
+        h3 { font-size: 1.4rem !important; }
+    }
+
+    /* Analysis builder cards */
+    .input-card {
+        padding: 0.9rem;
+    }
+
+    .input-card textarea,
+    .job-description {
+        min-height: 120px;
+        font-size: 0.8rem;
+    }
+
+    .upload-box {
+        padding: 1.2rem;
+        span.material-symbols-outlined { font-size: 1.6rem; }
+        strong { font-size: 0.85rem; }
+    }
+
+    .or-divider { margin: 0.55rem 0; }
+
+    .self-desc-section textarea { min-height: 60px; }
+
+    .generate-btn.hero-btn {
+        font-size: 0.82rem;
+        padding: 0.6rem 1rem;
+    }
+
+    /* Plan items: smaller */
+    .plan-item {
+        grid-template-columns: auto 1fr auto;
+        padding: 0.55rem;
+        gap: 0.5rem;
+    }
+
+    .plan-icon { width: 1.8rem; height: 1.8rem; }
+
+    .plan-title-row h3 {
+        font-size: 0.75rem;
+        white-space: normal;
+    }
+
+    .plan-subtitle { font-size: 0.65rem; }
+
+    .plan-actions button { width: 1.6rem; height: 1.6rem; }
+
+    /* App top bar text smaller */
+    .top-bar-title { font-size: 0.85rem; }
+
+    .user-name { display: none; } /* hide name, keep avatar on small phones */
+}
+
+/* ── Very small phones (≤ 380px) ── */
+@media (max-width: 380px) {
+
+    .dashboard-main { padding: 0.4rem 0.5rem; }
+
+    .page-header h1 { font-size: 0.95rem; }
+    .page-header .subtitle { font-size: 0.65rem; }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.3rem !important;
+    }
+
+    .stat-card {
+        h3 { font-size: 1.2rem !important; }
+        padding: 0.45rem !important;
+    }
+
+    .input-card { padding: 0.6rem; }
+
+    .upload-box {
+        padding: 0.8rem;
+        span.material-symbols-outlined { font-size: 1.3rem; margin-bottom: 0.2rem; }
+        strong { font-size: 0.75rem; }
+    }
+
+    .generate-btn.hero-btn {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .top-bar-title { font-size: 0.78rem; }
 }
