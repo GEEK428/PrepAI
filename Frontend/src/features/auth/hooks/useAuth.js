@@ -73,15 +73,15 @@ export const useAuth = () => {
         }
     }
 
-    const handleForgotPassword = async ({ email }) => {
+    const handleForgotPassword = async ({ email, password, confirmPassword }) => {
         setLoading(true)
         try {
-            const data = await forgotPassword({ email })
+            const data = await forgotPassword({ email, password, confirmPassword })
             return { ok: true, data }
         } catch (err) {
             return {
                 ok: false,
-                message: err?.response?.data?.message || "Unable to process forgot-password request. Please try again."
+                message: err?.response?.data?.message || "Unable to update password. Please try again."
             }
         } finally {
             setLoading(false)

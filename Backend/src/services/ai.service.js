@@ -7,6 +7,79 @@ const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
 })
 
+const DEFAULT_MODEL_CANDIDATES = [
+    process.env.GOOGLE_GENAI_MODEL,
+    "gemini-2.5-flash",
+    "gemini-2.0-flash"
+].filter(Boolean)
+
+function extractResponseText(response) {
+    if (!response) return ""
+
+    if (typeof response.text === "string") {
+        return response.text
+    }
+
+    if (typeof response.text === "function") {
+        try {
+            return response.text() || ""
+        } catch (err) {
+            return ""
+        }
+    }
+
+    return (
+        response?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("") ||
+        ""
+    )
+}
+
+function safeParseJson(rawText = "") {
+    const text = String(rawText || "").trim()
+    if (!text) {
+        throw new Error("AI returned an empty response.")
+    }
+
+    try {
+        return JSON.parse(text)
+    } catch (err) {
+        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+        if (fenced?.[1]) {
+            return JSON.parse(fenced[1].trim())
+        }
+        throw new Error("AI returned malformed JSON.")
+    }
+}
+
+async function generateStructuredJson({ prompt, schema }) {
+    if (!process.env.GOOGLE_GENAI_API_KEY) {
+        throw new Error("GOOGLE_GENAI_API_KEY is missing.")
+    }
+
+    let lastError = null
+
+    for (const model of DEFAULT_MODEL_CANDIDATES) {
+        try {
+            const response = await ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: zodToJsonSchema(schema),
+                }
+            })
+
+            const rawText = extractResponseText(response)
+            const parsed = safeParseJson(rawText)
+            return schema.parse(parsed)
+        } catch (err) {
+            lastError = err
+        }
+    }
+
+    throw lastError || new Error("Unable to generate AI response.")
+}
+
 
 const interviewReportSchema = z.object({
     matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job description"),
@@ -45,16 +118,10 @@ Self Description: ${selfDescription}
 Job Description: ${jobDescription}
 Return topSkills as 3 to 6 concise skill names that best match this job description.
 `
-    const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(interviewReportSchema),
-        }
+    return generateStructuredJson({
+        prompt,
+        schema: interviewReportSchema
     })
-
-    return JSON.parse(response.text)
 }
 
 
@@ -270,16 +337,10 @@ RULES:
 4. In missingJobSkills: list ONLY skills the job description explicitly requires that are NOT already in the candidate's skills. Max 6. Keep them concise (e.g. "Docker", "GraphQL").
 5. Keep all text tight and concise — this must fit on one A4 page.`
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(resumeDataSchema),
-        }
+    const data = await generateStructuredJson({
+        prompt,
+        schema: resumeDataSchema
     })
-
-    const data = JSON.parse(response.text)
 
     /* ── Inject missing skills into the Skills section ── */
     if (data.missingJobSkills && data.missingJobSkills.length > 0) {
@@ -322,16 +383,10 @@ Instructions:
 - Avoid very long output.
 - Return both answerText and answerHtml.
 `
-    const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(noteAnswerSchema)
-        }
+    return generateStructuredJson({
+        prompt,
+        schema: noteAnswerSchema
     })
-
-    return JSON.parse(response.text)
 }
 
 module.exports = { generateInterviewReport, generateResumePdf, generatePdfFromHtml, generateNoteAnswer }

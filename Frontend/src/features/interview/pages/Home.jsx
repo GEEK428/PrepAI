@@ -37,14 +37,17 @@ const Home = () => {
             return
         }
 
-        const data = await generateReport({ jobDescription, selfDescription, resumeFile })
+        try {
+            const data = await generateReport({ jobDescription, selfDescription, resumeFile })
+            if (!data?._id) {
+                setError("Unable to generate report. Please try again.")
+                return
+            }
 
-        if (!data?._id) {
-            setError("Unable to generate report. Please check backend logs and try again.")
-            return
+            navigate(`/interview/${data._id}`)
+        } catch (err) {
+            setError(err?.response?.data?.message || "Unable to generate report. Please try again.")
         }
-
-        navigate(`/interview/${data._id}`)
     }
 
     const clearSelectedResume = () => {

@@ -400,6 +400,10 @@ const Notes = () => {
 
             <section className="dashboard-main notes-main">
                 <TopBar />
+                <div className="page-header notes-page-header" style={{ marginBottom: "0.6rem" }}>
+                    <h1>Notes & Prep Space</h1>
+                    <p className="subtitle">Capture interview questions, refine answers, and track your prep confidence.</p>
+                </div>
 
                 <div className="notes-search-row">
                     <div className="notes-search-wrap">
@@ -421,7 +425,10 @@ const Notes = () => {
                 <div className="notes-layout">
                     <article className="notes-panel notes-list-panel">
                         <div className="notes-panel__head">
-                            <h3>Question Bank</h3>
+                            <div>
+                                <h3>Question Bank</h3>
+                                <p className="desktop-only-description">Browse, filter, and select questions you want to practice or export.</p>
+                            </div>
                             <div className="notes-panel__actions">
                                 <button type="button" onClick={() => setShowFilterOptions((prev) => !prev)}>
                                     {showFilterOptions ? "Hide Filters" : "Filter Options"}
@@ -566,7 +573,10 @@ const Notes = () => {
 
                     <article className="notes-panel notes-editor-panel">
                         <div className="notes-panel__head">
-                            <h3>{isCreatingNew ? "Create Question" : "Edit Question"}</h3>
+                            <div>
+                                <h3>{isCreatingNew ? "Create Question" : "Edit Question"}</h3>
+                                <p className="desktop-only-description">Draft cleaner answers with formatting tools and AI support.</p>
+                            </div>
                             <div className="notes-panel__actions">
                                 <button type="button" onClick={() => handleSaveNote()} disabled={saveLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                     <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>save</span>
@@ -671,6 +681,7 @@ const Notes = () => {
 
                     <article className="notes-panel notes-stats-panel">
                         <h3>Overall Statistics</h3>
+                        <p className="desktop-only-description">Monitor mastery trends and confidence to target weak spots faster.</p>
                         <div className="notes-stats-visual">
                             <div className="notes-pie-wrap enhanced">
                                 <div className="notes-pie" style={chart.style} aria-label="Notes status distribution chart">
@@ -741,7 +752,10 @@ const Notes = () => {
                 <section className="history-modal-overlay" onClick={() => setShowAllNotes(false)}>
                     <article className="history-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="history-modal__head">
-                            <h3>All Questions</h3>
+                            <div>
+                                <h3>All Questions</h3>
+                                <p className="desktop-only-description">Review every saved question and manage export selections.</p>
+                            </div>
                             <div className="history-modal__actions">
                                 <button type="button" onClick={() => setShowAllNotes(false)}>Close</button>
                             </div>

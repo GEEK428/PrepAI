@@ -104,18 +104,26 @@ const ResumeBuilder = () => {
             return
         }
 
-        const generated = await generateReport({
-            jobDescription: jobDescription.trim(),
-            selfDescription: selfDescription.trim(),
-            resumeFile
-        })
+        let generated = null
+        let blob = null
+        try {
+            generated = await generateReport({
+                jobDescription: jobDescription.trim(),
+                selfDescription: selfDescription.trim(),
+                resumeFile
+            })
 
-        if (!generated?._id) {
-            setError("Unable to generate optimized resume. Please try again.")
+            if (!generated?._id) {
+                setError("Unable to generate optimized resume. Please try again.")
+                return
+            }
+
+            blob = await getResumePdfBlob(generated._id)
+        } catch (err) {
+            setError(err?.response?.data?.message || "Unable to generate optimized resume. Please try again.")
             return
         }
 
-        const blob = await getResumePdfBlob(generated._id)
         if (!blob) {
             setError("Resume generation failed. Please try again.")
             return
@@ -154,6 +162,7 @@ const ResumeBuilder = () => {
             <section className="dashboard-main resume-builder-main">
                 <TopBar />
                 <div className="page-header" style={{ marginBottom: '1rem' }}>
+                    <h1>Resume Builder</h1>
                     <p className="subtitle">Upload your resume + job listing to generate a tailored, one-page PDF.</p>
                 </div>
 
@@ -162,6 +171,7 @@ const ResumeBuilder = () => {
                         <div className="upload-drop">
                             <div className="upload-icon">UP</div>
                             <h3>Resume Source</h3>
+                            <p className="desktop-only-description">Choose your latest profile source before generating an optimized resume.</p>
                             <p>Upload resume or use self description with job description.</p>
                             <button type="button" onClick={() => fileInputRef.current?.click()}>Select File</button>
                             <input
@@ -197,6 +207,7 @@ const ResumeBuilder = () => {
                         <div className="download-history">
                             <div className="history-top">
                                 <h4>Download History</h4>
+                                <p className="desktop-only-description">Re-download previously generated resumes in one click.</p>
                             </div>
                             <ul>
                                 {history.slice(0, 3).map((item) => (
@@ -228,6 +239,7 @@ const ResumeBuilder = () => {
                             <p>Live Parser Preview</p>
                             <span>{previewUrl ? "Parsed" : "Waiting"}</span>
                         </div>
+                        <p className="desktop-only-description">Preview the generated PDF before downloading the final copy.</p>
 
                         <div className="preview-body">
                             {previewUrl ? (

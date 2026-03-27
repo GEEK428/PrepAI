@@ -47,11 +47,17 @@
 }
 
 .notes-panel {
-    border: 1px solid rgba(146, 173, 196, 0.2);
-    border-radius: 0.9rem;
-    background: linear-gradient(145deg, rgba(34, 53, 71, 0.35), rgba(14, 23, 32, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.035);
+    border-radius: 1rem;
+    background: #090e15;
     padding: 0.65rem;
     min-height: 640px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
 }
 
 .notes-panel__head {
@@ -64,6 +70,10 @@
     h3 {
         margin: 0;
         font-size: 0.93rem;
+    }
+
+    > div:first-child {
+        min-width: 0;
     }
 }
 
@@ -157,9 +167,16 @@
 .note-list-item {
     border: 1px solid rgba(146, 173, 196, 0.2);
     border-radius: 0.6rem;
-    background: rgba(88, 121, 151, 0.1);
+    background: rgba(12, 24, 36, 0.72);
     padding: 0.45rem;
     cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        border-color: rgba(146, 210, 255, 0.3);
+        background: rgba(18, 34, 50, 0.86);
+    }
 
     p {
         margin: 0.24rem 0 0;
@@ -268,7 +285,7 @@
 .notes-group {
     border: 1px solid rgba(146, 173, 196, 0.18);
     border-radius: 0.55rem;
-    background: rgba(88, 121, 151, 0.08);
+    background: rgba(12, 24, 36, 0.68);
     padding: 0.42rem;
 
     h4 {
@@ -398,10 +415,16 @@
 .stat-box {
     border: 1px solid rgba(146, 173, 196, 0.2);
     border-radius: 0.65rem;
-    background: rgba(88, 121, 151, 0.12);
+    background: rgba(12, 24, 36, 0.72);
     padding: 0.5rem;
     margin-top: 0.65rem;
     margin-bottom: 0.42rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(5, 10, 16, 0.24);
+    }
 
     p {
         margin: 0;
@@ -418,7 +441,7 @@
 .notes-stats-visual {
     border: 1px solid rgba(146, 173, 196, 0.2);
     border-radius: 0.75rem;
-    background: linear-gradient(160deg, rgba(89, 130, 164, 0.14), rgba(10, 18, 28, 0.68));
+    background: rgba(12, 24, 36, 0.72);
     padding: 0.55rem;
     margin-top: 0.5rem;
 }
@@ -614,6 +637,12 @@
     color: #9fe7cb;
 }
 
+.desktop-only-description {
+    margin: 0.12rem 0 0;
+    font-size: 0.66rem;
+    color: rgba(194, 214, 233, 0.72);
+}
+
 @media (max-width: 1200px) {
     .notes-layout {
         grid-template-columns: 1fr;
@@ -626,5 +655,12 @@
     .notes-pie-wrap {
         grid-template-columns: 1fr;
         justify-items: start;
+    }
+
+}
+
+@media (max-width: 850px) {
+    .desktop-only-description {
+        display: none;
     }
 }

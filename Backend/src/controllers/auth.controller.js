@@ -582,7 +582,7 @@ async function deleteAccountController(req, res) {
  * @access Public
  */
 async function forgotPasswordController(req, res) {
-    const { email } = req.body
+    const { email, password, confirmPassword } = req.body || {}
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
     const normalizedEmail = email?.trim().toLowerCase()
 
@@ -593,35 +593,50 @@ async function forgotPasswordController(req, res) {
     }
 
     const user = await userModel.findOne({ email: normalizedEmail })
-    const genericResponse = {
-        message: "If this email is registered, reset instructions have been sent."
-    }
 
     if (!user) {
-        return res.status(200).json(genericResponse)
+        return res.status(404).json({
+            message: "No account found with this email."
+        })
     }
 
     if (user.authProvider === "google" && !user.password) {
-        return res.status(200).json(genericResponse)
+        return res.status(400).json({
+            message: "This account uses Google sign-in. Password reset is not available here."
+        })
     }
 
-    const rawResetToken = crypto.randomBytes(32).toString("hex")
-    const hashedResetToken = hashResetToken(rawResetToken)
-    const expiresAt = new Date(Date.now() + (15 * 60 * 1000))
+    if (!passwordRegex.test(password || "")) {
+        return res.status(400).json({
+            message: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+        })
+    }
 
-    user.passwordResetToken = hashedResetToken
-    user.passwordResetExpiresAt = expiresAt
+    if (password !== confirmPassword) {
+        return res.status(400).json({
+            message: "New password and confirm password must match."
+        })
+    }
+
+    if (user.password) {
+        const sameAsOld = await bcrypt.compare(password, user.password)
+        if (sameAsOld) {
+            return res.status(400).json({
+                message: "New password must be different from current password."
+            })
+        }
+    }
+
+    user.password = await bcrypt.hash(password, 10)
+    user.authProvider = "local"
+    user.passwordResetToken = null
+    user.passwordResetExpiresAt = null
+    user.tokenVersion = (user.tokenVersion || 0) + 1
     await user.save()
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173"
-    const resetUrl = `${frontendUrl}/reset-password/${rawResetToken}`
-
-    await sendForgotPasswordEmail({
-        email: user.email,
-        resetUrl
+    return res.status(200).json({
+        message: "Password updated successfully. Please login with your new password."
     })
-
-    return res.status(200).json(genericResponse)
 }
 
 /**

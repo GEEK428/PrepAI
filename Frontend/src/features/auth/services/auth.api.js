@@ -78,8 +78,8 @@ export const deleteAccount = async ({ password }) => {
     return response.data;
 };
 
-export const forgotPassword = async ({ email }) => {
-    const response = await api.post("/api/auth/forgot-password", { email });
+export const forgotPassword = async ({ email, password, confirmPassword }) => {
+    const response = await api.post("/api/auth/forgot-password", { email, password, confirmPassword });
     return response.data;
 };
 

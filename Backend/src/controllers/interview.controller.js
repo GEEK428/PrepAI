@@ -5,7 +5,7 @@ const os = require("os")
 const fs = require("fs/promises")
 const path = require("path")
 const crypto = require("crypto")
-const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
+const { generateInterviewReport, generateResumePdf, generatePdfFromHtml } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
 function extractInsights({ topSkills = [], skillGaps = [] }) {
@@ -20,6 +20,105 @@ function extractInsights({ topSkills = [], skillGaps = [] }) {
         .slice(0, 6)
 
     return { topSkills: cleanTopSkills, criticalGaps }
+}
+
+function deriveTitleFromJobDescription(jobDescription = "") {
+    const firstLine = String(jobDescription || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .find(Boolean)
+
+    if (!firstLine) return "Target Role"
+    return firstLine.slice(0, 80)
+}
+
+function buildFallbackInterviewReport({ jobDescription }) {
+    const title = deriveTitleFromJobDescription(jobDescription)
+    return {
+        matchScore: 60,
+        technicalQuestions: [
+            {
+                question: "Walk us through one project that best matches this role.",
+                intention: "Assess role relevance and depth of hands-on experience.",
+                answer: "Describe the project context, your role, technical decisions, and measurable impact."
+            },
+            {
+                question: "Which core concepts are most important for this position?",
+                intention: "Evaluate your fundamentals and prioritization.",
+                answer: "List key concepts from the job description and explain where you applied each one."
+            }
+        ],
+        behavioralQuestions: [
+            {
+                question: "Tell me about a time you solved a difficult problem under pressure.",
+                intention: "Check structured thinking and ownership.",
+                answer: "Use STAR format and highlight outcome, trade-offs, and lessons."
+            }
+        ],
+        skillGaps: [],
+        topSkills: [],
+        preparationPlan: [
+            {
+                day: 1,
+                focus: "Role requirements mapping",
+                tasks: [
+                    "Map job responsibilities to your experience",
+                    "Prepare two impact-focused project stories"
+                ]
+            },
+            {
+                day: 2,
+                focus: "Interview drills",
+                tasks: [
+                    "Practice role-specific technical Q&A",
+                    "Practice behavioral answers using STAR format"
+                ]
+            }
+        ],
+        title
+    }
+}
+
+function buildFallbackResumeHtml({ resume = "", selfDescription = "", jobDescription = "", title = "Target Role" }) {
+    const escape = (value = "") => String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+
+    const resumeSnippet = (resume || selfDescription || "No resume text found.")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 35)
+        .join("<br/>")
+
+    const jdSnippet = String(jobDescription || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 8)
+        .join("<br/>")
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  @page { size: A4; margin: 14mm; }
+  body { font-family: Arial, sans-serif; color: #1f2933; font-size: 10pt; line-height: 1.45; }
+  h1 { margin: 0 0 10px; font-size: 18pt; }
+  h2 { margin: 14px 0 6px; font-size: 11pt; text-transform: uppercase; letter-spacing: 0.06em; color: #334e68; }
+  .block { border: 1px solid #d7e0ea; border-radius: 8px; padding: 10px; }
+</style>
+</head>
+<body>
+  <h1>${escape(title)}</h1>
+  <h2>Candidate Snapshot</h2>
+  <div class="block">${resumeSnippet ? escape(resumeSnippet) : "No candidate text provided."}</div>
+  <h2>Target Job Summary</h2>
+  <div class="block">${jdSnippet ? escape(jdSnippet) : "No job description provided."}</div>
+</body>
+</html>`
 }
 
 async function extractResumeTextFromUpload(file) {
@@ -82,11 +181,24 @@ async function generateInterViewReportController(req, res) {
         }
     }
 
-    const interViewReportByAi = await generateInterviewReport({
-        resume: resumeText,
-        selfDescription,
-        jobDescription
-    })
+    let interViewReportByAi
+    try {
+        interViewReportByAi = await generateInterviewReport({
+            resume: resumeText,
+            selfDescription,
+            jobDescription
+        })
+    } catch (error) {
+        console.error("[InterviewReport] AI generation failed, using fallback.", error)
+        interViewReportByAi = buildFallbackInterviewReport({ jobDescription })
+    }
+
+    if (!interViewReportByAi?.title) {
+        interViewReportByAi = {
+            ...interViewReportByAi,
+            title: deriveTitleFromJobDescription(jobDescription)
+        }
+    }
 
     const interviewReport = await interviewReportModel.create({
         user: req.user.id,
@@ -232,7 +344,19 @@ async function generateResumePdfController(req, res) {
     /* ── Cache MISS: generate fresh PDF ────────────────────────── */
     console.log(`[ResumeBuilder] Cache MISS — generating PDF for report ${interviewReportId}`)
 
-    const pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
+    let pdfBuffer
+    try {
+        pdfBuffer = await generateResumePdf({ resume, jobDescription, selfDescription })
+    } catch (error) {
+        console.error("[ResumeBuilder] AI PDF generation failed, using fallback.", error)
+        const fallbackHtml = buildFallbackResumeHtml({
+            resume,
+            selfDescription,
+            jobDescription,
+            title: interviewReport.title || deriveTitleFromJobDescription(jobDescription)
+        })
+        pdfBuffer = await generatePdfFromHtml(fallbackHtml)
+    }
 
     /* Persist asynchronously so we don't slow down the response */
     interviewReportModel.findByIdAndUpdate(interviewReportId, {
