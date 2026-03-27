@@ -12,9 +12,7 @@ const RESUME_AI_MODEL = "gemini-3-flash-preview"
 function extractResponseText(response) {
     if (!response) return ""
 
-    if (typeof response.text === "string") {
-        return response.text
-    }
+    if (typeof response.text === "string") return response.text
 
     if (typeof response.text === "function") {
         try {
@@ -24,10 +22,7 @@ function extractResponseText(response) {
         }
     }
 
-    return (
-        response?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("") ||
-        ""
-    )
+    return response?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("") || ""
 }
 
 function safeParseJson(rawText = "") {
@@ -51,6 +46,7 @@ async function generateStructuredJson({ prompt, schema }) {
     if (!process.env.GOOGLE_GENAI_API_KEY) {
         throw new Error("GOOGLE_GENAI_API_KEY is missing.")
     }
+
     const response = await ai.models.generateContent({
         model: RESUME_AI_MODEL,
         contents: prompt,
@@ -65,318 +61,255 @@ async function generateStructuredJson({ prompt, schema }) {
     return schema.parse(parsed)
 }
 
-
 const interviewReportSchema = z.object({
-    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job description"),
+    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate profile matches the job description"),
     technicalQuestions: z.array(z.object({
-        question:  z.string().describe("The technical question can be asked in the interview"),
-        intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer:    z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
-    })).describe("Technical questions that can be asked in the interview along with their intention and how to answer them"),
+        question: z.string(),
+        intention: z.string(),
+        answer: z.string()
+    })),
     behavioralQuestions: z.array(z.object({
-        question:  z.string().describe("The technical question can be asked in the interview"),
-        intention: z.string().describe("The intention of interviewer behind asking this question"),
-        answer:    z.string().describe("How to answer this question, what points to cover, what approach to take etc.")
-    })).describe("Behavioral questions that can be asked in the interview along with their intention and how to answer them"),
+        question: z.string(),
+        intention: z.string(),
+        answer: z.string()
+    })),
     skillGaps: z.array(z.object({
-        skill:    z.string().describe("The skill which the candidate is lacking"),
-        severity: z.enum(["low", "medium", "high"]).describe("The severity of this skill gap")
-    })).describe("List of skill gaps in the candidate's profile along with their severity"),
-    topSkills: z.array(z.string()).describe("Top 3-6 skills where candidate profile strongly matches the job description"),
+        skill: z.string(),
+        severity: z.enum(["low", "medium", "high"])
+    })),
+    topSkills: z.array(z.string()),
     preparationPlan: z.array(z.object({
-        day:   z.number().describe("The day number in the preparation plan, starting from 1"),
-        focus: z.string().describe("The main focus of this day in the preparation plan"),
-        tasks: z.array(z.string()).describe("List of tasks to be done on this day")
-    })).describe("A day-wise preparation plan for the candidate"),
-    title: z.string().describe("The title of the job for which the interview report is generated"),
+        day: z.number(),
+        focus: z.string(),
+        tasks: z.array(z.string())
+    })),
+    title: z.string(),
 })
 
 const noteAnswerSchema = z.object({
-    answerText: z.string().describe("Clear interview-ready answer in plain text with headings and bullet points where useful."),
-    answerHtml: z.string().describe("Equivalent HTML answer using simple tags (p, ul, ol, li, strong, em, pre, code).")
+    answerText: z.string(),
+    answerHtml: z.string()
+})
+
+const jobSkillsSchema = z.object({
+    requiredSkills: z.array(z.string())
+})
+
+const onePageResumeSchema = z.object({
+    resumeText: z.string()
 })
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
-    const prompt = `Generate an interview report for a candidate with the following details:
-Resume: ${resume}
-Self Description: ${selfDescription}
-Job Description: ${jobDescription}
-Return topSkills as 3 to 6 concise skill names that best match this job description.
-`
+    const prompt = `Generate an interview report for a candidate with the following details:\nResume: ${resume}\nSelf Description: ${selfDescription}\nJob Description: ${jobDescription}\nReturn topSkills as 3 to 6 concise skill names that best match this job description.`
+
     return generateStructuredJson({
         prompt,
         schema: interviewReportSchema
     })
 }
 
+function normalizeSkillName(skill = "") {
+    return String(skill || "").trim().replace(/[.,;:]+$/g, "")
+}
 
-/* ═══════════════════════════════════════════════════════════════════
-   RESUME STRUCTURED DATA SCHEMA
-   AI extracts structured data, then we render into a fixed template.
-═══════════════════════════════════════════════════════════════════ */
-const resumeDataSchema = z.object({
-    name:     z.string().describe("Full name of the candidate"),
-    email:    z.string().describe("Email address, empty string if not found"),
-    phone:    z.string().describe("Phone number, empty string if not found"),
-    linkedin: z.string().describe("LinkedIn profile URL or username, empty string if not found"),
-    github:   z.string().describe("GitHub profile URL or username, empty string if not found"),
-    leetcode: z.string().describe("LeetCode profile URL or username, empty string if not found"),
-    portfolio:z.string().describe("Portfolio or personal website URL, empty string if not found"),
+function dedupeSkills(skills = []) {
+    const seen = new Set()
+    const out = []
+    for (const raw of skills) {
+        const skill = normalizeSkillName(raw)
+        if (!skill) continue
+        const key = skill.toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(skill)
+    }
+    return out
+}
 
-    education: z.array(z.object({
-        institution: z.string().describe("Name of the college, university or school"),
-        degree:      z.string().describe("Degree and field of study, e.g. B.Tech Computer Science"),
-        years:       z.string().describe("Year range, e.g. 2020 – 2024 or 2024"),
-        gpa:         z.string().describe("GPA or percentage if mentioned, empty string otherwise")
-    })).describe("Education history, most recent first"),
+function extractPresentSkillsFromText(resumeText = "") {
+    const text = String(resumeText || "")
+    const parts = text.split(/[\n,|]/g).map((item) => normalizeSkillName(item)).filter(Boolean)
+    return dedupeSkills(parts)
+}
 
-    skills: z.array(z.object({
-        category: z.string().describe("Skill category label, e.g. Languages, Frameworks, Tools, Databases"),
-        items:    z.array(z.string()).describe("List of skills in this category")
-    })).describe("Skills grouped by category"),
+function injectMissingSkillsIntoResumeText(resumeText = "", requiredSkills = []) {
+    const text = String(resumeText || "").trim()
+    const lines = text.split(/\r?\n/)
 
-    projects: z.array(z.object({
-        name:        z.string().describe("Project name"),
-        description: z.string().describe("One to two sentence description of the project and its impact. Include a quantified metric if available, e.g. reduced latency by 40%, used by 500+ users."),
-        techStack:   z.array(z.string()).describe("Technologies used in this project"),
-        link:        z.string().describe("Project URL or GitHub link if available, empty string otherwise")
-    })).describe("Projects the candidate has built, most impressive first, max 4"),
+    const existingSkills = extractPresentSkillsFromText(text).map((s) => s.toLowerCase())
+    const missing = dedupeSkills(requiredSkills).filter((skill) => !existingSkills.includes(skill.toLowerCase()))
 
-    experience: z.array(z.object({
-        company:     z.string().describe("Company or organization name"),
-        role:        z.string().describe("Job title or role"),
-        duration:    z.string().describe("Duration, e.g. Jun 2023 – Aug 2023"),
-        bullets:     z.array(z.string()).describe("2-3 achievement-focused bullet points with quantified impact where possible")
-    })).describe("Work experience, internships, most recent first, max 3"),
-
-    achievements: z.array(z.string()).describe("Awards, certifications, competitive programming ranks, open source contributions – max 4 items"),
-
-    /* Skills to ADD from job description that are NOT already present */
-    missingJobSkills: z.array(z.string()).describe("Skills explicitly required in the job description that are NOT in the candidate's existing skills list. Max 6. Only add if genuinely missing.")
-})
-
-/* ═══════════════════════════════════════════════════════════════════
-   LATEX-INSPIRED HTML TEMPLATE
-   Fixed structure: Name → Links → Education → Skills → Projects
-                    → Experience → Achievements
-   Always 1 A4 page, ultra-compact, professional.
-═══════════════════════════════════════════════════════════════════ */
-function buildResumeHtml(data) {
-    const { name, email, phone, linkedin, github, leetcode, portfolio,
-            education, skills, projects, experience, achievements } = data
-
-    /* ── helpers ── */
-    const esc = (s) => (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    const linkTag = (label, url) => {
-        if (!url) return ""
-        const href = url.startsWith("http") ? url : `https://${url}`
-        return `<a href="${esc(href)}" style="color:#111;text-decoration:none;">${esc(label || url)}</a>`
+    if (!missing.length) {
+        return text
     }
 
-    const contactParts = [
-        email    ? `<a href="mailto:${esc(email)}" style="color:#111;text-decoration:none;">${esc(email)}</a>` : "",
-        phone    ? esc(phone)    : "",
-        linkedin ? linkTag("LinkedIn", linkedin) : "",
-        github   ? linkTag("GitHub",   github)   : "",
-        leetcode ? linkTag("LeetCode", leetcode) : "",
-        portfolio? linkTag("Portfolio",portfolio) : ""
-    ].filter(Boolean)
+    const headingRegex = /^\s*(skills?|technical skills?|core skills?|technologies?)\s*:?\s*$/i
+    const headingIndex = lines.findIndex((line) => headingRegex.test(line.trim()))
 
-    const hr = `<hr style="border:none;border-top:1px solid #222;margin:3pt 0 2pt;">`
+    if (headingIndex >= 0) {
+        let insertAt = headingIndex + 1
+        while (
+            insertAt < lines.length &&
+            lines[insertAt].trim() &&
+            !/^[A-Z][A-Za-z\s/&-]{2,35}:?$/.test(lines[insertAt].trim())
+        ) {
+            insertAt += 1
+        }
+        lines.splice(insertAt, 0, `Added for target role: ${missing.join(", ")}`)
+        return lines.join("\n").trim()
+    }
 
-    /* ── education ── */
-    const eduHtml = (education || []).map(e => `
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1pt;">
-            <span><b>${esc(e.institution)}</b> — <span style="font-style:italic;">${esc(e.degree)}</span>${e.gpa ? ` • GPA: ${esc(e.gpa)}` : ""}</span>
-            <span style="white-space:nowrap;font-size:7pt;color:#444;">${esc(e.years)}</span>
-        </div>`).join("")
+    return `${text}\n\nSkills\n${missing.join(", ")}`.trim()
+}
 
-    /* ── skills ── */
-    const skillsHtml = (skills || []).map(s =>
-        `<span><b>${esc(s.category)}:</b> ${s.items.map(esc).join(", ")}</span>`
-    ).join(" &nbsp;|&nbsp; ")
+function isLikelyOnePageResume(resumeText = "") {
+    const words = String(resumeText || "").split(/\s+/).filter(Boolean).length
+    const lines = String(resumeText || "").split(/\r?\n/).filter((line) => line.trim()).length
+    return words <= 650 && lines <= 90
+}
 
-    /* ── projects ── */
-    const projHtml = (projects || []).slice(0,4).map(p => {
-        const techStr = (p.techStack || []).length ? `<span style="font-style:italic;color:#444;">${p.techStack.map(esc).join(", ")}</span>` : ""
-        const lnk = p.link ? ` <a href="${p.link.startsWith("http")?p.link:"https://"+p.link}" style="color:#333;font-size:6.5pt;">[link]</a>` : ""
-        return `
-        <div style="margin-bottom:3pt;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                <b>${esc(p.name)}${lnk}</b> ${techStr}
-            </div>
-            <div style="margin-left:8pt;">${esc(p.description)}</div>
-        </div>`
-    }).join("")
+function escapeHtml(text = "") {
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+}
 
-    /* ── experience ── */
-    const expHtml = (experience || []).slice(0,3).map(e => `
-        <div style="margin-bottom:3pt;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                <span><b>${esc(e.role)}</b> — <i>${esc(e.company)}</i></span>
-                <span style="white-space:nowrap;font-size:7pt;color:#444;">${esc(e.duration)}</span>
-            </div>
-            <ul style="margin:1pt 0 0 12pt;padding:0;">${(e.bullets||[]).map(b=>`<li>${esc(b)}</li>`).join("")}</ul>
-        </div>`).join("")
+function buildBasicResumeHtmlFromText(resumeText = "") {
+    const lines = String(resumeText || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
 
-    /* ── achievements ── */
-    const achHtml = (achievements || []).slice(0,4)
-        .map(a => `<li>${esc(a)}</li>`).join("")
+    const content = lines.map((line) => {
+        const isHeading = /^[A-Z][A-Za-z\s/&-]{2,40}:?$/.test(line)
+        const isBullet = /^[-*�]\s+/.test(line)
 
-    const sectionTitle = (t) =>
-        `<div style="font-size:8pt;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-bottom:0.8pt solid #111;margin:4pt 0 2pt;">${t}</div>`
+        if (isHeading) {
+            return `<h2>${escapeHtml(line.replace(/:$/, ""))}</h2>`
+        }
+        if (isBullet) {
+            return `<p class=\"bullet\">${escapeHtml(line.replace(/^[-*�]\s+/, ""))}</p>`
+        }
+        return `<p>${escapeHtml(line)}</p>`
+    }).join("\n")
 
     return `<!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset=\"UTF-8\">
 <style>
-  * { box-sizing: border-box; }
-  @page { size: A4; margin: 10mm 12mm; }
+  @page { size: A4; margin: 10mm; }
   body {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 8.5pt;
-    line-height: 1.25;
+    font-family: Arial, sans-serif;
+    font-size: 9pt;
+    line-height: 1.28;
     color: #111;
     margin: 0;
     padding: 0;
     -webkit-print-color-adjust: exact;
   }
-  a { color: #111; text-decoration: none; }
-  ul { margin: 0; padding-left: 12pt; }
-  li { margin-bottom: 1pt; }
-  b { font-weight: 700; }
+  h2 {
+    font-size: 10pt;
+    margin: 8pt 0 3pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #222;
+    padding-bottom: 2pt;
+  }
+  p {
+    margin: 2pt 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  p.bullet {
+    padding-left: 10pt;
+    text-indent: -8pt;
+  }
 </style>
 </head>
 <body>
-<!-- NAME -->
-<div style="text-align:center;margin-bottom:2pt;">
-    <div style="font-size:18pt;font-weight:700;letter-spacing:0.02em;">${esc(name)}</div>
-    <div style="font-size:7.5pt;margin-top:2pt;color:#222;">
-        ${contactParts.join(" &nbsp;•&nbsp; ")}
-    </div>
-</div>
-
-${hr}
-
-${education?.length ? sectionTitle("Education") + eduHtml : ""}
-
-${skills?.length ? sectionTitle("Skills") + `<div style="font-size:7.8pt;line-height:1.4;">${skillsHtml}</div>` : ""}
-
-${projects?.length ? sectionTitle("Projects") + projHtml : ""}
-
-${experience?.length ? sectionTitle("Experience") + expHtml : ""}
-
-${achievements?.length ? sectionTitle("Achievements") + `<ul style="margin:0 0 0 12pt;">${achHtml}</ul>` : ""}
-
+${content}
 </body>
 </html>`
 }
 
+async function extractRequiredSkillsFromJobDescription(jobDescription = "") {
+    const prompt = `Extract required technical/job skills from this job description.\n\nJob Description:\n${jobDescription}\n\nRules:\n1. Return concise skill names only.\n2. No explanations.\n3. Prefer concrete technologies/frameworks/tools over soft skills.\n4. Maximum 12 skills.`
+
+    const response = await generateStructuredJson({
+        prompt,
+        schema: jobSkillsSchema
+    })
+
+    return dedupeSkills(response?.requiredSkills || []).slice(0, 12)
+}
+
+async function condenseResumeToOnePage({ resumeText, requiredSkills, jobDescription }) {
+    const prompt = `Rewrite this resume to one page while preserving factual content.\n\nResume Text:\n${resumeText}\n\nRequired Job Skills:\n${requiredSkills.join(", ") || "(none)"}\n\nJob Description:\n${jobDescription}\n\nRules:\n1. Do not invent any facts, dates, companies, projects, or metrics.\n2. Keep core achievements and responsibilities.\n3. Keep or create a Skills section containing required skills.\n4. Use compact section headings and short bullets.\n5. Remove repetition and verbose lines only.`
+
+    const response = await generateStructuredJson({
+        prompt,
+        schema: onePageResumeSchema
+    })
+
+    return String(response?.resumeText || "").trim()
+}
 
 async function generatePdfFromHtml(htmlContent) {
-    let browser;
+    let browser
     try {
         browser = await puppeteer.launch({
             executablePath: process.env.NODE_ENV === "production" ? "/usr/bin/chromium" : undefined,
             args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"],
             headless: "new"
-        });
-        const page = await browser.newPage();
-        await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+        })
+        const page = await browser.newPage()
+        await page.setContent(htmlContent, { waitUntil: "networkidle0" })
         const pdfBuffer = await page.pdf({
             format: "A4",
-            margin: { top: "10mm", bottom: "10mm", left: "12mm", right: "12mm" },
+            margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" },
             printBackground: true
-        });
-        return pdfBuffer;
+        })
+        return pdfBuffer
     } finally {
-        if (browser) await browser.close();
+        if (browser) await browser.close()
     }
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   MAIN EXPORT: generateResumePdf
-   1. Ask AI to extract structured data from resume / self-desc
-   2. AI identifies missing skills from job description
-   3. Inject missing skills into the skills sections
-   4. Render fixed LaTeX-style HTML template
-   5. Convert to PDF via Puppeteer
-═══════════════════════════════════════════════════════════════ */
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
-
-    const prompt = `You are a professional resume parser and optimizer.
-
-Extract all information from the candidate data below into the structured schema.
-
-CANDIDATE DATA:
-Resume Text: ${resume || "(none)"}
-Self Description: ${selfDescription || "(none)"}
-Job Description: ${jobDescription}
-
-RULES:
-1. Do NOT invent or hallucinate ANY detail. Only use facts from the data above.
-2. For projects: add a realistic quantified metric to the description if one can be reasonably inferred (e.g. "built for 200+ users", "reduced API calls by ~30%"). Do NOT fabricate specific numbers not implied by the text.
-3. For experience bullet points: make them achievement-focused and concise.
-4. In missingJobSkills: list ONLY skills the job description explicitly requires that are NOT already in the candidate's skills. Max 6. Keep them concise (e.g. "Docker", "GraphQL").
-5. Keep all text tight and concise — this must fit on one A4 page.
-6. Prefer strong action verbs and outcomes ("built", "optimized", "reduced", "improved") over generic wording.
-7. Prioritize ATS-friendly phrasing and explicit technical nouns from the job description.
-8. Order sections and bullets by impact and relevance to the target role.
-9. Keep project descriptions to exactly 1-2 lines each and avoid fluff.
-10. Ensure the final resume feels polished, recruiter-friendly, and immediately skimmable.`
-
-    const data = await generateStructuredJson({
-        prompt,
-        schema: resumeDataSchema
-    })
-
-    /* ── Inject missing skills into the Skills section ── */
-    if (data.missingJobSkills && data.missingJobSkills.length > 0) {
-        const allExisting = (data.skills || []).flatMap(s => s.items.map(i => i.toLowerCase()))
-        const toAdd = data.missingJobSkills.filter(s => !allExisting.includes(s.toLowerCase()))
-
-        if (toAdd.length > 0) {
-            // Try to find a "Tools" or "Other" category to append to, else create one
-            const targetCat = data.skills.find(s =>
-                /tools?|other|misc|additional/i.test(s.category)
-            )
-            if (targetCat) {
-                targetCat.items = [...targetCat.items, ...toAdd]
-            } else {
-                data.skills.push({ category: "Additional", items: toAdd })
-            }
-        }
+    const sourceResumeText = String(resume || selfDescription || "").trim()
+    if (!sourceResumeText) {
+        throw new Error("Resume text is empty. Upload a valid resume to continue.")
     }
 
-    const html = buildResumeHtml(data)
-    const pdfBuffer = await generatePdfFromHtml(html)
-    return pdfBuffer
-}
+    const requiredSkills = await extractRequiredSkillsFromJobDescription(jobDescription || "")
+    const resumeWithSkills = injectMissingSkillsIntoResumeText(sourceResumeText, requiredSkills)
 
+    const finalResumeText = isLikelyOnePageResume(resumeWithSkills)
+        ? resumeWithSkills
+        : await condenseResumeToOnePage({
+            resumeText: resumeWithSkills,
+            requiredSkills,
+            jobDescription: jobDescription || ""
+        })
+
+    const html = buildBasicResumeHtmlFromText(finalResumeText)
+    return generatePdfFromHtml(html)
+}
 
 async function generateNoteAnswer({ domain, subdomain, question, sourceTag = "", difficulty = "medium" }) {
-    const prompt = `
-Generate a concise but strong interview answer for this question.
+    const prompt = `Generate a concise but strong interview answer for this question.\n\nDomain: ${domain}\nSubdomain: ${subdomain}\nDifficulty: ${difficulty}\nSource: ${sourceTag || "N/A"}\nQuestion: ${question}\n\nInstructions:\n- Keep it practical and interviewer-ready.\n- Use clear structure: key idea, approach, examples, common mistakes.\n- If coding-related, include short pseudocode/code-style explanation.\n- Avoid very long output.\n- Return both answerText and answerHtml.`
 
-Domain: ${domain}
-Subdomain: ${subdomain}
-Difficulty: ${difficulty}
-Source: ${sourceTag || "N/A"}
-Question: ${question}
-
-Instructions:
-- Keep it practical and interviewer-ready.
-- Use clear structure: key idea, approach, examples, common mistakes.
-- If coding-related, include short pseudocode/code-style explanation.
-- Avoid very long output.
-- Return both answerText and answerHtml.
-`
     return generateStructuredJson({
         prompt,
         schema: noteAnswerSchema
     })
 }
 
-module.exports = { generateInterviewReport, generateResumePdf, generatePdfFromHtml, generateNoteAnswer }
+module.exports = {
+    generateInterviewReport,
+    generateResumePdf,
+    generatePdfFromHtml,
+    generateNoteAnswer
+}
