@@ -9,14 +9,21 @@
 }
 
 .settings-card {
-    border: 1px solid rgba(146, 173, 196, 0.2);
-    border-radius: 0.85rem;
-    background: linear-gradient(145deg, rgba(34, 53, 71, 0.35), rgba(14, 23, 32, 0.9));
-    padding: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.035);
+    border-radius: 1rem;
+    background: #090e15;
+    padding: 0.85rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
 
     h3 {
         margin: 0 0 0.55rem;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
+        color: #e8f2fb;
     }
 }
 

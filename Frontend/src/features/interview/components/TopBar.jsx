@@ -1,7 +1,7 @@
 import React from 'react';
 import NotificationBell from './NotificationBell';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 /* Map route → page title */
 const PAGE_TITLES = {
@@ -11,11 +11,13 @@ const PAGE_TITLES = {
     '/notes':            'Notes & Prep Space',
     '/progress-tracker': 'Progress Tracker',
     '/settings':         'Settings',
+    '/interview':        'Interview Report',
 };
 
 const TopBar = ({ onMenuOpen }) => {
     const { user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     /* Find the best matching title */
     const pageTitle = Object.entries(PAGE_TITLES).find(([path]) =>
@@ -24,9 +26,13 @@ const TopBar = ({ onMenuOpen }) => {
             : location.pathname.startsWith(path)
     )?.[1] ?? 'IntelliPrep';
 
+    const displayName = user?.fullName || user?.username || '';
+    const avatar = user?.avatar || '';
+    const initials = displayName.charAt(0).toUpperCase() || 'U';
+
     return (
         <header className="app-top-bar">
-            {/* Left: hamburger (mobile) + page title */}
+            {/* Left: hamburger (mobile only) + page title */}
             <div className="top-bar-left">
                 {onMenuOpen && (
                     <button
@@ -40,28 +46,30 @@ const TopBar = ({ onMenuOpen }) => {
                 <h2 className="top-bar-title">{pageTitle}</h2>
             </div>
 
-            {/* Right: notification + user */}
+            {/* Right: notification bell + single user avatar */}
             <div className="top-bar-right">
                 <NotificationBell />
-                <div className="user-profile-badge">
-                    <img
-                        className="user-avatar"
-                        src="/default-avatar.png"
-                        alt="User"
-                        onError={(e) => {
-                            e.target.style.display = 'none';
-                            if (!e.target.parentElement.querySelector('.avatar-fallback')) {
-                                const fb = document.createElement('div');
-                                fb.className = 'avatar-fallback';
-                                fb.innerHTML = '<span class="material-symbols-outlined">person</span>';
-                                e.target.parentElement.appendChild(fb);
-                            }
-                        }}
-                    />
-                    {(user?.fullName || user?.username) && (
-                        <span className="user-name">{user?.fullName || user?.username}</span>
+
+                <button
+                    className="top-bar-user-btn"
+                    onClick={() => navigate('/settings')}
+                    title="Profile & Settings"
+                >
+                    {avatar ? (
+                        <img
+                            className="top-bar-avatar"
+                            src={avatar}
+                            alt={displayName}
+                        />
+                    ) : (
+                        <div className="top-bar-avatar top-bar-avatar--initials">
+                            {initials}
+                        </div>
                     )}
-                </div>
+                    {displayName && (
+                        <span className="top-bar-username">{displayName}</span>
+                    )}
+                </button>
             </div>
         </header>
     );
