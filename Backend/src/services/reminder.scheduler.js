@@ -1,4 +1,3 @@
-const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 const roadmapModel = require("../models/roadmap.model")
 const userModel = require("../models/user.model")
@@ -69,8 +68,14 @@ async function createInAppNotification({ userId, type, title, message, meta = {}
 }
 
 async function processRoadmapReminder(roadmap, now) {
-    const user = await userModel.findById(roadmap.user).select("email username")
+    const user = await userModel.findById(roadmap.user).select("email username isVerified preferences.emailNotifications")
     if (!user) return
+    const canSendEmail = Boolean(
+        user.email &&
+        user.isVerified &&
+        user.preferences?.emailNotifications !== false &&
+        [ "email", "both" ].includes(roadmap.reminderType)
+    )
 
     if (isSameDay(roadmap.lastReminderSentAt, now)) {
         return
@@ -108,7 +113,7 @@ async function processRoadmapReminder(roadmap, now) {
             })
         }
 
-        if ([ "email", "both" ].includes(roadmap.reminderType)) {
+        if (canSendEmail) {
             await sendEmailSafe({
                 to: user.email,
                 subject: "IntelliPrep Daily Reminder",
@@ -138,9 +143,9 @@ async function processRoadmapReminder(roadmap, now) {
             })
         }
 
-        if ([ "email", "both" ].includes(roadmap.reminderType)) {
+        if (canSendEmail) {
             const bullets = overdueGoals
-                .map((goal) => `- ${goal.skill} (${goal.currentProgress}/${goal.targetValue}) · deadline: ${new Date(goal.deadline).toLocaleDateString()}`)
+                .map((goal) => `- ${goal.skill} (${goal.currentProgress}/${goal.targetValue}) - deadline: ${new Date(goal.deadline).toLocaleDateString()}`)
                 .join("\n")
             const htmlBullets = overdueGoals
                 .map((goal) => `<li>${goal.skill} (${goal.currentProgress}/${goal.targetValue}) - deadline: ${new Date(goal.deadline).toLocaleDateString()}</li>`)

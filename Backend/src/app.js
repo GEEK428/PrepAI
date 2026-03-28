@@ -21,6 +21,10 @@ app.use(cors({
     credentials: true
 }))
 
+app.get("/api/health", (req, res) => {
+    return res.status(200).json({ ok: true, service: "backend", timestamp: new Date().toISOString() })
+})
+
 /* require all the routes here */
 const authRouter = require("./routes/auth.routes")
 const interviewRouter = require("./routes/interview.routes")

@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require("@google/genai")
 const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
-const puppeteer = require("puppeteer")
+let puppeteerLib = null
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
@@ -257,9 +257,13 @@ async function condenseResumeToOnePage({ resumeText, requiredSkills, jobDescript
 }
 
 async function generatePdfFromHtml(htmlContent) {
+    if (!puppeteerLib) {
+        puppeteerLib = require("puppeteer")
+    }
+
     let browser
     try {
-        browser = await puppeteer.launch({
+        browser = await puppeteerLib.launch({
             executablePath: process.env.NODE_ENV === "production" ? "/usr/bin/chromium" : undefined,
             args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"],
             headless: "new"
@@ -313,3 +317,4 @@ module.exports = {
     generatePdfFromHtml,
     generateNoteAnswer
 }
+

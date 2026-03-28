@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar'
 import TopBar from '../components/TopBar'
 import Loader from '../../../components/Loader'
 
-const Home = () => {
+const ResumeAnalysis = () => {
 
     const { loading, generateReport, reports, getReports } = useInterview()
     
@@ -252,4 +252,4 @@ const Home = () => {
     )
 }
 
-export default Home
+export default ResumeAnalysis

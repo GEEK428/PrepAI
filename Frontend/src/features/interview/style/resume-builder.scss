@@ -1,11 +1,13 @@
 .resume-builder-main {
     gap: 0.8rem;
+    min-width: 0;
 }
 
 .builder-grid {
     display: grid;
     grid-template-columns: 1fr 1.25fr;
     gap: 0.75rem;
+    min-width: 0;
 }
 
 .upload-panel,
@@ -14,6 +16,7 @@
     border-radius: 1rem;
     background: #090e15;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0;
 
     &:hover {
         transform: translateY(-2px);
@@ -159,6 +162,8 @@
             font-size: 0.68rem;
             font-weight: 600;
             display: block;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         small {
@@ -176,6 +181,14 @@
             cursor: pointer;
         }
     }
+}
+
+.download-history li > div:first-child {
+    min-width: 0;
+}
+
+.history-item-actions {
+    flex-shrink: 0;
 }
 
 .history-top {
@@ -232,6 +245,35 @@
     }
 }
 
+.preview-viewer-wrap {
+    width: 100%;
+}
+
+.preview-mobile-fallback {
+    display: none;
+    padding: 0.8rem 0.7rem;
+    border-top: 1px solid rgba(146, 173, 196, 0.2);
+    background: rgba(8, 16, 26, 0.75);
+
+    p {
+        margin: 0 0 0.55rem;
+        font-size: 0.7rem;
+        color: rgba(194, 214, 233, 0.74);
+    }
+
+    button {
+        width: 100%;
+        border: 1px solid rgba(143, 180, 210, 0.35);
+        background: linear-gradient(135deg, #84b8e6, #569bcd);
+        color: #08131f;
+        border-radius: 999px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+}
+
 .preview-placeholder {
     min-height: 620px;
     display: grid;
@@ -241,6 +283,10 @@
 }
 
 .preview-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+
     button {
         width: 100%;
         border: 1px solid rgba(143, 180, 210, 0.35);
@@ -252,6 +298,11 @@
         font-weight: 700;
         cursor: pointer;
     }
+}
+
+.preview-open-btn {
+    background: rgba(97, 137, 169, 0.2) !important;
+    color: #eaf3fb !important;
 }
 
 .desktop-only-description {
@@ -287,5 +338,9 @@
 
     .desktop-only-description {
         display: none;
+    }
+
+    .preview-mobile-fallback {
+        display: block;
     }
 }

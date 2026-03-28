@@ -7,7 +7,7 @@ import TopBar from "../components/TopBar"
 
 const DOWNLOAD_HISTORY_KEY = "intelliprep_resume_download_history"
 
-const ResumeBuilder = () => {
+const ResumeOptimizer = () => {
     const { loading, generateReport, getResumePdfBlob } = useInterview()
     const fileInputRef = useRef(null)
 
@@ -15,6 +15,7 @@ const ResumeBuilder = () => {
     const [selectedFile, setSelectedFile] = useState("")
     const [error, setError] = useState("")
     const [latestReportId, setLatestReportId] = useState("")
+    const [latestFileName, setLatestFileName] = useState("")
     const [previewUrl, setPreviewUrl] = useState("")
     const [history, setHistory] = useState([])
     const [showAllHistory, setShowAllHistory] = useState(false)
@@ -36,6 +37,14 @@ const ResumeBuilder = () => {
         }
     }, [])
 
+    useEffect(() => {
+        return () => {
+            if (previewUrl) {
+                window.URL.revokeObjectURL(previewUrl)
+            }
+        }
+    }, [previewUrl])
+
     const persistHistory = (entries) => {
         setHistory(entries)
         localStorage.setItem(DOWNLOAD_HISTORY_KEY, JSON.stringify(entries))
@@ -50,6 +59,20 @@ const ResumeBuilder = () => {
         persistHistory(next)
     }
 
+    const isMobileClient = () => {
+        if (typeof window === "undefined") return false
+        const byViewport = window.matchMedia?.("(max-width: 850px)")?.matches
+        const byUserAgent = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent || "")
+        return Boolean(byViewport || byUserAgent)
+    }
+
+    const openBlobInNewTab = (url) => {
+        const opened = window.open(url, "_blank", "noopener,noreferrer")
+        if (!opened) {
+            window.location.assign(url)
+        }
+    }
+
     const triggerDownload = async ({ reportId, fileName }) => {
         if (!reportId) return
 
@@ -59,11 +82,15 @@ const ResumeBuilder = () => {
                 return
             }
             const url = window.URL.createObjectURL(blob)
+            if (isMobileClient()) {
+                openBlobInNewTab(url)
+                setTimeout(() => window.URL.revokeObjectURL(url), 5000)
+                return
+            }
+
             const link = document.createElement("a")
             link.href = url
-            link.setAttribute("download", fileName)
-            link.setAttribute("target", "_blank")
-            link.setAttribute("rel", "noopener noreferrer")
+            link.setAttribute("download", fileName || `resume_${reportId}.pdf`)
             document.body.appendChild(link)
             link.click()
             link.remove()
@@ -71,6 +98,11 @@ const ResumeBuilder = () => {
         } catch (e) {
             console.error(e)
         }
+    }
+
+    const handleOpenPreview = () => {
+        if (!previewUrl) return
+        openBlobInNewTab(previewUrl)
     }
 
     const handleGenerateOptimizedResume = async () => {
@@ -119,6 +151,7 @@ const ResumeBuilder = () => {
         setLatestReportId(generated._id)
 
         const fileName = `resume_${(generated.title || "optimized").replace(/\s+/g, "_").toLowerCase()}.pdf`
+        setLatestFileName(fileName)
         const nextHistory = [
             {
                 reportId: generated._id,
@@ -220,26 +253,26 @@ const ResumeBuilder = () => {
 
                         <div className="preview-body">
                             {previewUrl ? (
-                                <>
-                                    <object
-                                        data={previewUrl}
-                                        type="application/pdf"
-                                        className="preview-pdf-frame"
-                                        aria-label="Resume preview"
-                                    >
-                                        <iframe title="resume-preview" src={previewUrl} className="preview-pdf-frame" />
-                                    </object>
-                                </>
+                                <div className="preview-viewer-wrap">
+                                    <iframe title="resume-preview" src={previewUrl} className="preview-pdf-frame" />
+                                    <div className="preview-mobile-fallback">
+                                        <p>Preview may open better in a new tab on mobile.</p>
+                                        <button type="button" onClick={handleOpenPreview}>Open</button>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="preview-placeholder">Generated resume preview will appear here.</div>
                             )}
                         </div>
 
                         <div className="preview-actions">
+                            <button type="button" disabled={!previewUrl} onClick={handleOpenPreview} className="preview-open-btn">
+                                Open
+                            </button>
                             <button
                                 type="button"
                                 disabled={!latestReportId}
-                                onClick={() => latestReportId && triggerDownload({ reportId: latestReportId, fileName: `resume_${latestReportId}.pdf` })}
+                                onClick={() => latestReportId && triggerDownload({ reportId: latestReportId, fileName: latestFileName || `resume_${latestReportId}.pdf` })}
                             >
                                 Download
                             </button>
@@ -289,4 +322,4 @@ const ResumeBuilder = () => {
     )
 }
 
-export default ResumeBuilder
+export default ResumeOptimizer

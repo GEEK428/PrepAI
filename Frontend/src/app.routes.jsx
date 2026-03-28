@@ -5,9 +5,9 @@ import ForgotPassword from "./features/auth/pages/ForgotPassword";
 import ResetPassword from "./features/auth/pages/ResetPassword";
 import VerifyEmail from "./features/auth/pages/VerifyEmail";
 import Protected from "./features/auth/components/Protected";
-import Home from "./features/interview/pages/Home";
+import ResumeAnalysis from "./features/interview/pages/ResumeAnalysis";
 import Interview from "./features/interview/pages/Interview";
-import ResumeBuilder from "./features/interview/pages/ResumeBuilder";
+import ResumeOptimizer from "./features/interview/pages/ResumeOptimizer";
 import Settings from "./features/interview/pages/Settings";
 import Notes from "./features/interview/pages/Notes";
 import ProgressTracker from "./features/interview/pages/ProgressTracker";
@@ -38,15 +38,15 @@ export const router = createBrowserRouter([
     },
     {
         path: "/",
-        element: <Protected><Home /></Protected>
+        element: <Protected><ResumeAnalysis /></Protected>
     },
     {
         path: "/resume-optimizer",
-        element: <Protected><ResumeBuilder /></Protected>
+        element: <Protected><ResumeOptimizer /></Protected>
     },
     {
         path: "/resume-builder",
-        element: <Protected><ResumeBuilder /></Protected>
+        element: <Protected><ResumeOptimizer /></Protected>
     },
     {
         path: "/settings",
