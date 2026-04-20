@@ -19,6 +19,7 @@ const ResumeOptimizer = () => {
     const [previewUrl, setPreviewUrl] = useState("")
     const [history, setHistory] = useState([])
     const [showAllHistory, setShowAllHistory] = useState(false)
+    const [zoom, setZoom] = useState(100)
 
     const formatDateTime = (value) => new Date(value).toLocaleString()
 
@@ -28,20 +29,14 @@ const ResumeOptimizer = () => {
         if (stored) {
             try {
                 const parsed = JSON.parse(stored)
-                if (Array.isArray(parsed)) {
-                    setHistory(parsed)
-                }
-            } catch (err) {
-                console.log(err)
-            }
+                if (Array.isArray(parsed)) setHistory(parsed)
+            } catch (err) { console.log(err) }
         }
     }, [])
 
     useEffect(() => {
         return () => {
-            if (previewUrl) {
-                window.URL.revokeObjectURL(previewUrl)
-            }
+            if (previewUrl) window.URL.revokeObjectURL(previewUrl)
         }
     }, [previewUrl])
 
@@ -50,44 +45,23 @@ const ResumeOptimizer = () => {
         localStorage.setItem(DOWNLOAD_HISTORY_KEY, JSON.stringify(entries))
     }
 
-    const clearHistory = () => {
-        persistHistory([])
-    }
+    const clearHistory = () => persistHistory([])
 
     const removeHistoryItem = (target) => {
         const next = history.filter((item) => !(item.reportId === target.reportId && item.createdAt === target.createdAt))
         persistHistory(next)
     }
 
-    const isMobileClient = () => {
-        if (typeof window === "undefined") return false
-        const byViewport = window.matchMedia?.("(max-width: 850px)")?.matches
-        const byUserAgent = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent || "")
-        return Boolean(byViewport || byUserAgent)
-    }
-
     const openBlobInNewTab = (url) => {
-        const opened = window.open(url, "_blank", "noopener,noreferrer")
-        if (!opened) {
-            window.location.assign(url)
-        }
+        window.open(url, "_blank", "noopener,noreferrer")
     }
 
     const triggerDownload = async ({ reportId, fileName }) => {
         if (!reportId) return
-
         try {
             const blob = await getResumePdfBlob(reportId)
-            if (!blob) {
-                return
-            }
+            if (!blob) return
             const url = window.URL.createObjectURL(blob)
-            if (isMobileClient()) {
-                openBlobInNewTab(url)
-                setTimeout(() => window.URL.revokeObjectURL(url), 5000)
-                return
-            }
-
             const link = document.createElement("a")
             link.href = url
             link.setAttribute("download", fileName || `resume_${reportId}.pdf`)
@@ -95,78 +69,43 @@ const ResumeOptimizer = () => {
             link.click()
             link.remove()
             setTimeout(() => window.URL.revokeObjectURL(url), 2500)
-        } catch (e) {
-            console.error(e)
-        }
-    }
-
-    const handleOpenPreview = () => {
-        if (!previewUrl) return
-        openBlobInNewTab(previewUrl)
+        } catch (e) { console.error(e) }
     }
 
     const handleGenerateOptimizedResume = async () => {
         setError("")
-
         const resumeFile = fileInputRef.current?.files?.[0]
-        if (!jobDescription.trim()) {
-            setError("Job description is required.")
-            return
-        }
-        if (!resumeFile) {
-            setError("Upload a resume file to continue.")
-            return
-        }
+        if (!jobDescription.trim()) return setError("Job description is required.")
+        if (!resumeFile) return setError("Upload a resume file to continue.")
 
-        let generated = null
-        let blob = null
         try {
-            generated = await generateReport({
+            const generated = await generateReport({
                 jobDescription: jobDescription.trim(),
                 selfDescription: "",
                 resumeFile
             })
 
-            if (!generated?._id) {
-                setError("Unable to generate optimized resume. Please try again.")
-                return
-            }
+            if (!generated?._id) throw new Error("Generation failed.")
 
-            blob = await getResumePdfBlob(generated._id)
+            const blob = await getResumePdfBlob(generated._id)
+            if (!blob) throw new Error("PDF generation failed.")
+
+            const url = window.URL.createObjectURL(blob)
+            setPreviewUrl((prev) => {
+                if (prev) window.URL.revokeObjectURL(prev)
+                return url
+            })
+            setLatestReportId(generated._id)
+
+            const fileName = `optimized_resume_${Date.now()}.pdf`
+            setLatestFileName(fileName)
+            const nextHistory = [
+                { reportId: generated._id, fileName, createdAt: new Date().toISOString() },
+                ...history.filter((item) => item.reportId !== generated._id)
+            ]
+            persistHistory(nextHistory)
         } catch (err) {
-            setError(err?.response?.data?.message || "Unable to generate optimized resume. Please try again.")
-            return
-        }
-
-        if (!blob) {
-            setError("Resume generation failed. Please try again.")
-            return
-        }
-
-        const url = window.URL.createObjectURL(blob)
-        setPreviewUrl((prev) => {
-            if (prev) window.URL.revokeObjectURL(prev)
-            return url
-        })
-        setLatestReportId(generated._id)
-
-        const fileName = `resume_${(generated.title || "optimized").replace(/\s+/g, "_").toLowerCase()}.pdf`
-        setLatestFileName(fileName)
-        const nextHistory = [
-            {
-                reportId: generated._id,
-                fileName,
-                createdAt: new Date().toISOString()
-            },
-            ...history.filter((item) => item.reportId !== generated._id)
-        ]
-        persistHistory(nextHistory)
-    }
-
-    const clearSelectedResume = () => {
-        setSelectedFile("")
-        if (fileInputRef.current) {
-            fileInputRef.current.value = ""
+            setError(err?.response?.data?.message || "AI failed to optimize. Please try again.")
         }
     }
 
@@ -176,149 +115,101 @@ const ResumeOptimizer = () => {
 
             <section className="dashboard-main resume-builder-main">
                 <TopBar />
-                <div className="page-header" style={{ marginBottom: '1rem' }}>
-                    <h1>Resume Optimizer</h1>
-                    <p className="subtitle">Upload your resume + job listing to generate a tailored, one-page optimized PDF.</p>
+                <div className="page-header compact-header" style={{ marginBottom: '1rem' }}>
+                    <p className="kicker">CAREER TOOLS</p>
+                    <h1>RESUME OPTIMIZER</h1>
                 </div>
 
                 <section className="builder-grid">
-                    <article className="upload-panel">
-                        <div className="upload-drop">
-                            <div className="upload-icon">UP</div>
-                            <h3>Resume Source</h3>
-                            <p className="desktop-only-description">Choose your latest profile source before generating an optimized resume.</p>
-                            <p>Upload resume and paste job description to optimize your profile.</p>
-                            <button type="button" onClick={() => fileInputRef.current?.click()}>Select File</button>
+                    <article className="upload-panel card-glass">
+                        <div className="compact-upload">
+                            <button className="select-btn" onClick={() => fileInputRef.current?.click()}>
+                                <span className="material-symbols-outlined">upload_file</span>
+                                {selectedFile ? selectedFile : "Upload Resume (PDF/DOCX)"}
+                            </button>
                             <input
                                 ref={fileInputRef}
                                 type="file"
                                 accept=".pdf,.doc,.docx"
                                 onChange={(e) => setSelectedFile(e.target.files?.[0]?.name || "")}
+                                style={{ display: 'none' }}
                             />
-                            {selectedFile && <span className="selected-file">{selectedFile}</span>}
-                            {selectedFile && (
-                                <button type="button" className="file-remove-btn" onClick={clearSelectedResume}>X</button>
-                            )}
                         </div>
 
-                        <div className="builder-inputs builder-inputs--single">
+                        <div className="job-desc-wrap">
+                            <label>TARGET JOB DESCRIPTION</label>
                             <textarea
-                                placeholder="Job description (required)"
+                                placeholder="Paste the job requirements here..."
                                 value={jobDescription}
                                 onChange={(e) => setJobDescription(e.target.value)}
                             />
-                            {error && <p className="builder-error">{error}</p>}
-                            <button type="button" onClick={handleGenerateOptimizedResume} disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-                                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>auto_awesome</span>
-                                {loading ? "Generating..." : "Generate Optimized Resume"}
-                            </button>
                         </div>
 
-                        <div className="download-history">
-                            <div className="history-top">
-                                <h4>Download History</h4>
-                                <p className="desktop-only-description">Re-download previously generated resumes in one click.</p>
-                            </div>
-                            <ul>
+                        {error && <p className="builder-error">{error}</p>}
+                        
+                        <button className="generate-btn-main" onClick={handleGenerateOptimizedResume} disabled={loading}>
+                            <span className="material-symbols-outlined">auto_awesome</span>
+                            {loading ? "GENERATING..." : "GENERATE TAILORED RESUME"}
+                        </button>
+
+                        <div className="mini-history">
+                            <h3>RECENT BUILDS</h3>
+                            <div className="history-list-compact">
                                 {history.slice(0, 3).map((item) => (
-                                    <li key={`${item.reportId}-${item.createdAt}`}>
-                                        <div>
-                                            <strong>{item.fileName}</strong>
-                                            <small>{formatDateTime(item.createdAt)}</small>
-                                        </div>
-                                        <div className="history-item-actions">
-                                            <button type="button" title="Download Resume" aria-label="Download" onClick={() => triggerDownload({ reportId: item.reportId, fileName: item.fileName })} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem' }}>
-                                                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>cloud_download</span>
-                                            </button>
-                                            <button type="button" title="Delete Resume" aria-label="Delete" className="history-delete-btn" onClick={() => removeHistoryItem(item)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem' }}>
-                                                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
-                                            </button>
-                                        </div>
-                                    </li>
+                                    <div key={item.reportId} className="history-pill">
+                                        <span>{item.fileName}</span>
+                                        <button onClick={() => triggerDownload({ reportId: item.reportId, fileName: item.fileName })}>
+                                            <span className="material-symbols-outlined">download</span>
+                                        </button>
+                                    </div>
                                 ))}
-                                {!history.length && <li><small>No downloaded PDFs yet.</small></li>}
-                            </ul>
-                            {history.length > 3 && (
-                                <button type="button" className="history-more-btn" onClick={() => setShowAllHistory(true)}>Show More</button>
-                            )}
+                            </div>
                         </div>
                     </article>
 
-                    <article className="preview-panel">
-                        <div className="preview-head">
-                            <p>Live Parser Preview</p>
-                            <span>{previewUrl ? "Parsed" : "Waiting"}</span>
+                    <article className="preview-panel card-glass">
+                        <div className="preview-top">
+                            <div className="preview-meta">
+                                <h3>RESUME PREVIEW</h3>
+                                <p>1:1 Industry Standard Format</p>
+                            </div>
+                            {previewUrl && (
+                                <div className="preview-controls">
+                                    <button onClick={() => setZoom(prev => Math.max(50, prev - 10))}>-</button>
+                                    <span>{zoom}%</span>
+                                    <button onClick={() => setZoom(prev => Math.min(150, prev + 10))}>+</button>
+                                </div>
+                            )}
                         </div>
-                        <p className="desktop-only-description">Preview the generated PDF before downloading the final copy.</p>
 
-                        <div className="preview-body">
+                        <div className="preview-scroll-area">
                             {previewUrl ? (
-                                <div className="preview-viewer-wrap">
-                                    <iframe title="resume-preview" src={previewUrl} className="preview-pdf-frame" />
-                                    <div className="preview-mobile-fallback">
-                                        <p>Preview may open better in a new tab on mobile.</p>
-                                        <button type="button" onClick={handleOpenPreview}>Open</button>
-                                    </div>
+                                <div className="iframe-container" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+                                    <iframe src={previewUrl} className="resume-iframe" title="preview" />
                                 </div>
                             ) : (
-                                <div className="preview-placeholder">Generated resume preview will appear here.</div>
+                                <div className="preview-empty">
+                                    <span className="material-symbols-outlined">description</span>
+                                    <p>Optimized resume will appear here</p>
+                                </div>
                             )}
                         </div>
 
-                        <div className="preview-actions">
-                            <button type="button" disabled={!previewUrl} onClick={handleOpenPreview} className="preview-open-btn">
-                                Open
+                        <div className="preview-footer-actions">
+                            <button className="action-btn secondary" disabled={!previewUrl} onClick={() => openBlobInNewTab(previewUrl)}>
+                                <span className="material-symbols-outlined">open_in_new</span> FULL VIEW
                             </button>
-                            <button
-                                type="button"
-                                disabled={!latestReportId}
-                                className="preview-download-btn"
-                                onClick={() => latestReportId && triggerDownload({ reportId: latestReportId, fileName: latestFileName || `resume_${latestReportId}.pdf` })}
-                            >
-                                Download
+                            <button className="action-btn secondary" disabled={!previewUrl}>
+                                <span className="material-symbols-outlined">add_to_drive</span> SAVE TO DRIVE
+                            </button>
+                            <button className="action-btn primary" disabled={!latestReportId} 
+                                onClick={() => triggerDownload({ reportId: latestReportId, fileName: latestFileName })}>
+                                <span className="material-symbols-outlined">download</span> DOWNLOAD PDF
                             </button>
                         </div>
                     </article>
                 </section>
-
-                <footer className="dashboard-footer">
-                    <a href="#" onClick={(e) => e.preventDefault()}>Privacy</a>
-                    <a href="#" onClick={(e) => e.preventDefault()}>Terms</a>
-                    <a href="#" onClick={(e) => e.preventDefault()}>Support</a>
-                </footer>
             </section>
-
-            {showAllHistory && (
-                <section className="history-modal-overlay" onClick={() => setShowAllHistory(false)}>
-                    <article className="history-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="history-modal__head">
-                            <h3>All Downloaded PDFs</h3>
-                            <div className="history-modal__actions">
-                                <button type="button" onClick={clearHistory}>Clear History</button>
-                                <button type="button" onClick={() => setShowAllHistory(false)}>Close</button>
-                            </div>
-                        </div>
-                        <div className="history-modal__list">
-                            {history.map((item) => (
-                                <div className="history-modal__item" key={`${item.reportId}-${item.createdAt}`}>
-                                    <div>
-                                        <strong>{item.fileName}</strong>
-                                        <p>{formatDateTime(item.createdAt)}</p>
-                                    </div>
-                                    <div className="history-modal__actions">
-                                        <button type="button" title="Download" onClick={() => triggerDownload({ reportId: item.reportId, fileName: item.fileName })} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0.6rem' }}>
-                                            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>cloud_download</span>
-                                        </button>
-                                        <button type="button" title="Delete" onClick={() => removeHistoryItem(item)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0.6rem' }}>
-                                            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </article>
-                </section>
-            )}
         </main>
     )
 }

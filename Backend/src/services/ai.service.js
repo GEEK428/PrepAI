@@ -1,4 +1,4 @@
-﻿const { GoogleGenAI } = require("@google/genai")
+const { GoogleGenAI } = require("@google/genai")
 const { z } = require("zod")
 const { zodToJsonSchema } = require("zod-to-json-schema")
 const crypto = require("crypto")
@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
 })
 
-const RESUME_AI_MODEL = "gemini-3-flash-preview"
+const RESUME_AI_MODEL = "gemini-1.5-flash"
 
 function generateCacheKey(prefix, data) {
     const hash = crypto.createHash("md5").update(JSON.stringify(data)).digest("hex")
@@ -156,34 +156,119 @@ function buildPremiumResumeHtml(data) {
     const { header, education, experience, projects, technicalSkills, achievements, interests } = data;
     const linksHtml = (header.links || []).map(link => `<a href="${link.url}">${link.label}</a>`).join(" | ");
 
-    const section = (title, content) => content ? `<section><h1>${title}</h1>${content}</section>` : "";
+    const escape = (t) => escapeHtml(t);
 
-    const educationHtml = education.map(edu => `
-        <div class="item">
-            <div class="row"><span class="main-text">${escapeHtml(edu.institution)}</span><span class="side-text">${escapeHtml(edu.duration)}</span></div>
-            <div class="row"><span class="sub-text">${escapeHtml(edu.degree)}</span><span class="side-text italic">${escapeHtml(edu.location)}</span></div>
-            ${edu.details && edu.details.length > 0 ? `<ul>${edu.details.map(d => `<li>${escapeHtml(d)}</li>`).join("")}</ul>` : ""}
-        </div>`).join("");
+    const section = (title, content) => content ? `
+        <div class="section">
+            <h2 class="section-title">${title}</h2>
+            <div class="section-content">${content}</div>
+        </div>` : "";
 
-    const experienceHtml = experience.map(exp => `
-        <div class="item">
-            <div class="row"><span class="main-text">${escapeHtml(exp.company)}</span><span class="side-text">${escapeHtml(exp.duration)}</span></div>
-            <div class="row"><span class="sub-text">${escapeHtml(exp.role)}</span><span class="side-text italic">${escapeHtml(exp.location)}</span></div>
-            <ul>${exp.points.map(p => `<li>${escapeHtml(p)}</li>`).join("")}</ul>
-        </div>`).join("");
-
-    const projectsHtml = projects.map(proj => `
-        <div class="item">
-            <div class="row">
-                <span class="main-text">${escapeHtml(proj.title)} ${proj.techStack ? `<span class="italic normal">| ${escapeHtml(proj.techStack)}</span>` : ""}</span>
-                <span class="side-text">${escapeHtml(proj.duration)} ${proj.link ? `| <a href="${proj.link}">Link</a>` : ""}</span>
+    const educationHtml = (education || []).map(edu => `
+        <div class="entry">
+            <div class="entry-header">
+                <span class="bold">${escape(edu.institution)}</span>
+                <span class="bold right">${escape(edu.duration)}</span>
             </div>
-            <ul>${proj.points.map(p => `<li>${escapeHtml(p)}</li>`).join("")}</ul>
+            <div class="entry-subheader">
+                <span class="italic">${escape(edu.degree)}</span>
+                <span class="italic right">${escape(edu.location)}</span>
+            </div>
+            ${edu.details?.length ? `<ul>${edu.details.map(d => `<li>${escape(d)}</li>`).join("")}</ul>` : ""}
         </div>`).join("");
 
-    const skillsHtml = '<div class="skills-grid">' + technicalSkills.map(g => `<div><strong>${escapeHtml(g.category)}:</strong> ${escapeHtml(g.skills)}</div>`).join("") + '</div>';
+    const experienceHtml = (experience || []).map(exp => `
+        <div class="entry">
+            <div class="entry-header">
+                <span class="bold">${escape(exp.company)}</span>
+                <span class="bold right">${escape(exp.duration)}</span>
+            </div>
+            <div class="entry-subheader">
+                <span class="italic">${escape(exp.role)}</span>
+                <span class="italic right">${escape(exp.location)}</span>
+            </div>
+            <ul>${exp.points.map(p => `<li>${escape(p)}</li>`).join("")}</ul>
+        </div>`).join("");
 
-    return "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>@page { size: A4; margin: 10mm; } body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; line-height: 1.25; color: #111; margin: 0; padding: 0; } header { text-align: center; margin-bottom: 8pt; } header h1 { font-size: 24pt; margin: 0; font-weight: normal; } header p { margin: 2pt 0; font-size: 10pt; } header a { color: #111; text-decoration: underline; margin: 0 4pt; } section { margin-top: 10pt; } section h1 { font-size: 11pt; font-weight: bold; border-bottom: 1px solid #111; margin: 0 0 5pt; padding-bottom: 1pt; text-transform: uppercase; } .item { margin-bottom: 6pt; } .row { display: flex; justify-content: space-between; align-items: baseline; } .main-text { font-weight: bold; } .sub-text { font-style: italic; } ul { margin: 2pt 0 0 15pt; padding: 0; list-style-type: disc; } li { margin-bottom: 1pt; text-align: justify; }</style></head><body><header><h1>" + escapeHtml(header.fullName) + "</h1><p>" + escapeHtml(header.location) + " | " + escapeHtml(header.phone) + " | " + escapeHtml(header.email) + "</p><div class='links'>" + linksHtml + "</div></header>" + section("EDUCATION", educationHtml) + section("EXPERIENCE", experienceHtml) + section("PROJECTS", projectsHtml) + section("TECHNICAL SKILLS", skillsHtml) + (achievements.length ? section("ACHIEVEMENTS", "<ul>" + achievements.map(a => "<li>" + escapeHtml(a) + "</li>").join("") + "</ul>") : "") + (interests.length ? section("INTERESTS", "<ul><li>" + escapeHtml(interests.join(", ")) + "</li></ul>") : "") + "</body></html>";
+    const projectsHtml = (projects || []).map(proj => `
+        <div class="entry">
+            <div class="entry-header">
+                <span class="bold">${escape(proj.title)} ${proj.techStack ? `| <span class="normal">${escape(proj.techStack)}</span>` : ""}</span>
+                <span class="bold right">${escape(proj.duration)} ${proj.link ? `| <a href="${proj.link}">Link</a>` : ""}</span>
+            </div>
+            <ul>${proj.points.map(p => `<li>${escape(p)}</li>`).join("")}</ul>
+        </div>`).join("");
+
+    const skillsHtml = (technicalSkills || []).map(s => `
+        <p><strong>${escape(s.category)}:</strong> ${escape(s.skills)}</p>
+    `).join("");
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 0.5in; }
+        body { 
+            font-family: "Times New Roman", Times, serif; 
+            font-size: 10.5pt; 
+            line-height: 1.2; 
+            color: #000; 
+            margin: 0; 
+            padding: 0;
+        }
+        .container { width: 100%; }
+        header { text-align: center; margin-bottom: 5pt; }
+        header h1 { font-size: 26pt; margin: 0; font-weight: normal; }
+        header p { margin: 2pt 0; font-size: 10pt; }
+        header .links { margin-top: 2pt; }
+        header a { color: #000; text-decoration: underline; margin: 0 3pt; font-size: 10pt; }
+        
+        .section { margin-top: 10pt; }
+        .section-title { 
+            font-size: 11pt; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            border-bottom: 1.5pt solid #000; 
+            margin: 0 0 4pt; 
+            padding-bottom: 1pt; 
+        }
+        
+        .entry { margin-bottom: 6pt; }
+        .entry-header, .entry-subheader { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+        }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        .normal { font-weight: normal; }
+        .right { text-align: right; }
+        
+        ul { margin: 2pt 0 0 16pt; padding: 0; list-style-type: disc; }
+        li { margin-bottom: 1pt; text-align: justify; }
+        p { margin: 2pt 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>${escape(header.fullName)}</h1>
+            <p>${escape(header.location)} | ${escape(header.phone)} | ${escape(header.email)}</p>
+            <div class="links">${linksHtml}</div>
+        </header>
+
+        ${section("EDUCATION", educationHtml)}
+        ${section("PROJECTS", projectsHtml)}
+        ${section("TECHNICAL SKILLS", skillsHtml)}
+        ${experience.length ? section("EXPERIENCE", experienceHtml) : ""}
+        ${achievements.length ? section("ACHIEVEMENTS", "<ul>" + achievements.map(a => `<li>${escape(a)}</li>`).join("") + "</ul>") : ""}
+        ${interests.length ? section("INTERESTS", "<ul><li>" + escape(interests.join(", ")) + "</li></ul>") : ""}
+    </div>
+</body>
+</html>`;
+    return html;
 }
 
 async function generatePdfFromHtml(htmlContent) {

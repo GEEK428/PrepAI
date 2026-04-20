@@ -92,7 +92,17 @@ const Notes = () => {
         const needsRevision = notes.filter((item) => item.status === "needs_revision").length
         const total = notes.length
         const successRate = total ? Math.round((understood / total) * 100) : 0
-        return { understood, needsRevision, successRate, total }
+        
+        // Categories Mastered Logic
+        const domainCounts = {}
+        notes.forEach(n => {
+            domainCounts[n.domain] = (domainCounts[n.domain] || { total: 0, done: 0 })
+            domainCounts[n.domain].total++
+            if (n.status === "done") domainCounts[n.domain].done++
+        })
+        const mastered = Object.values(domainCounts).filter(d => d.total > 0 && d.done === d.total).length
+
+        return { understood, needsRevision, successRate, total, mastered }
     }, [ notes ])
 
     const pieChartStyle = useMemo(() => {
@@ -174,7 +184,11 @@ const Notes = () => {
     }
 
     const handleExportSelected = async () => {
-        if (!selectedIds.length) return setError("Select questions to export.")
+        if (!selectedIds.length) {
+            setError("No file selected for export.")
+            setTimeout(() => setError(""), 3000)
+            return
+        }
         try {
             const blob = await exportNotesPdf(selectedIds)
             const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }))
@@ -190,6 +204,7 @@ const Notes = () => {
     const handleGenerateAiAnswer = async () => {
         if (!question.trim()) return setError("Enter a question first.")
         setAiLoading(true)
+        setError("")
         try {
             const res = await generateAiAnswer({ domain, subdomain, question, sourceTag, difficulty })
             const html = res.aiAnswer.answerHtml || `<p>${res.aiAnswer.answerText}</p>`
@@ -217,42 +232,42 @@ const Notes = () => {
                 <TopBar />
 
                 {/* SEARCH BAR (TOP) */}
-                <div className="notes-search-row" style={{ marginBottom: '1rem' }}>
+                <div className="notes-search-row">
                     <div className="notes-search-wrap">
                         <span className="material-symbols-outlined search-icon">search</span>
                         <input
                             className="notes-search"
-                            placeholder="Search by keywords in question, answer, domain..."
+                            placeholder="Search by keywords..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
                 </div>
                 
-                {/* VELOCITY HEADER */}
-                <header className="notes-optimized-header">
-                    <div className="velocity-card card-glass">
+                {/* STATS HEADER */}
+                <header className="notes-optimized-header compact-view">
+                    <div className="velocity-card card-glass small-card">
                         <div className="velocity-header">
-                            <p>PREPARATION VELOCITY</p>
+                            <p>PREPARATION SCORE</p>
                             <div className="velocity-main">
                                 <h1>{stats.successRate}%</h1>
-                                <span className="velocity-meta">Completion rate this week</span>
+                                <span className="velocity-meta">Questions prepared vs total</span>
                             </div>
                         </div>
                         <div className="velocity-pie-wrap">
-                            <div className="velocity-pie" style={pieChartStyle}>
+                            <div className="velocity-pie small-pie" style={pieChartStyle}>
                                 <div className="velocity-pie-inner">
-                                    <p>DAILY GOAL</p>
-                                    <strong>{stats.understood} / {Math.max(stats.total, 15)}</strong>
+                                    <p>PROGRESS</p>
+                                    <strong>{stats.understood} / {stats.total}</strong>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="streak-card card-glass">
-                        <span className="material-symbols-outlined streak-icon">military_tech</span>
-                        <p>CURRENT STREAK</p>
-                        <h1>14 Days</h1>
+                    <div className="streak-card card-glass small-card">
+                        <span className="material-symbols-outlined streak-icon small-icon">workspace_premium</span>
+                        <p>DOMAINS MASTERED</p>
+                        <h1>{stats.mastered}</h1>
                     </div>
                 </header>
 
@@ -263,7 +278,6 @@ const Notes = () => {
                             <div className="column-head-actions">
                                 <button className="filter-chip icon-only" onClick={() => setShowFilterOptions(!showFilterOptions)}>
                                     <span className="material-symbols-outlined">filter_list</span>
-                                    {showFilterOptions ? "Hide Filters" : "Filter Options"}
                                 </button>
                                 <button className="filter-chip active" onClick={resetForm}>
                                     <span className="material-symbols-outlined">add</span> New
@@ -288,29 +302,15 @@ const Notes = () => {
                                             {filterSubdomainOptions.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </label>
-                                    <label>Difficulty
-                                        <select value={filterDifficulty} onChange={(e) => setFilterDifficulty(e.target.value)}>
-                                            <option value="all">All</option>
-                                            <option value="easy">Easy</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="hard">Hard</option>
-                                        </select>
-                                    </label>
-                                    <label>Confidence
-                                        <select value={filterConfidence} onChange={(e) => setFilterConfidence(e.target.value)}>
-                                            <option value="all">All</option>
-                                            {[1,2,3,4,5].map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </label>
                                 </div>
                             </div>
                         )}
 
-                        <div className="notes-card-list">
+                        <div className="notes-card-list scroll-area">
                             {displayedNotes.map((note) => (
                                 <article 
                                     key={note._id} 
-                                    className={`note-card card-glass ${activeId === note._id ? 'active' : ''}`}
+                                    className={`note-card card-glass compact-card ${activeId === note._id ? 'active' : ''}`}
                                     onClick={() => setActiveId(note._id)}
                                 >
                                     <div className="note-card-badges">
@@ -320,21 +320,28 @@ const Notes = () => {
                                             onChange={() => toggleSelect(note._id)}
                                             onClick={e => e.stopPropagation()} 
                                         />
-                                        <span className={`badge-diff ${note.difficulty}`}>{note.difficulty.toUpperCase()}</span>
-                                        <span className={`badge-status ${note.status}`}>{statusLabel(note.status).toUpperCase()}</span>
+                                        <span className={`badge-diff small ${note.difficulty}`}>{note.difficulty.toUpperCase()}</span>
+                                        <span className={`badge-status small ${note.status}`}>{statusLabel(note.status).toUpperCase()}</span>
                                     </div>
-                                    <h3>{note.question}</h3>
+                                    <h3 className="compact-h3">{note.question}</h3>
                                     <div className="note-card-footer">
-                                        <span><i className="material-symbols-outlined">description</i> {note.subdomain}</span>
-                                        <span><i className="material-symbols-outlined">stars</i> Conf: {note.confidence}</span>
-                                        <button className="del-btn" onClick={(e) => handleDelete(e, note._id)}>
+                                        <span><i className="material-symbols-outlined small">description</i> {note.subdomain}</span>
+                                        <button className="del-btn small-btn" onClick={(e) => handleDelete(e, note._id)}>
                                             <span className="material-symbols-outlined">delete</span>
                                         </button>
                                     </div>
                                 </article>
                             ))}
-                            {!loading && !displayedNotes.length && <p className="empty-msg">No questions found matching your filters.</p>}
+                            {!loading && !displayedNotes.length && <p className="empty-msg">No questions found.</p>}
                             {loading && <Loader />}
+                        </div>
+
+                        {/* EXPORT OPTIONS MOVED HERE (JUST BELOW LIST) */}
+                        <div className="notes-export-inline card-glass">
+                            <p>{selectedIds.length} questions selected</p>
+                            <button className="export-btn-compact" onClick={handleExportSelected}>
+                                <span className="material-symbols-outlined">download</span> EXPORT PDF
+                            </button>
                         </div>
                     </div>
 
@@ -342,17 +349,16 @@ const Notes = () => {
                         <div className="prep-form-card card-glass">
                             <div className="form-head">
                                 <span className="material-symbols-outlined add-circle">{activeId ? "edit" : "add_circle"}</span>
-                                <h2>{activeId ? "Edit Prep Question" : "New Prep Question"}</h2>
+                                <h2>{activeId ? "Edit Question" : "New Question"}</h2>
                             </div>
 
                             <div className="form-body">
                                 <div className="input-group">
                                     <label>QUESTION TITLE</label>
                                     <textarea 
-                                        placeholder="e.g. Design a Rate Limiter" 
                                         value={question} 
                                         onChange={e => {setQuestion(e.target.value); setIsDirty(true)}}
-                                        style={{ minHeight: '60px', padding: '10px' }}
+                                        style={{ minHeight: '50px' }}
                                     />
                                 </div>
 
@@ -381,7 +387,7 @@ const Notes = () => {
                                         </select>
                                     </div>
                                     <div className="input-group">
-                                        <label>LEVEL (CONFIDENCE 1-5)</label>
+                                        <label>CONFIDENCE (1-5)</label>
                                         <select value={confidence} onChange={e => {setConfidence(e.target.value); setIsDirty(true)}}>
                                             {[1,2,3,4,5].map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
@@ -392,13 +398,13 @@ const Notes = () => {
                                     <div className="input-group">
                                         <label>UNDERSTANDING</label>
                                         <select value={status} onChange={e => {setStatus(e.target.value); setIsDirty(true)}}>
-                                            <option value="done">Review Ready / Understood</option>
-                                            <option value="needs_revision">In Progress / Revise</option>
+                                            <option value="done">Review Ready</option>
+                                            <option value="needs_revision">In Progress</option>
                                         </select>
                                     </div>
                                     <div className="input-group">
                                         <label>SOURCE TAG</label>
-                                        <input value={sourceTag} onChange={e => {setSourceTag(e.target.value); setIsDirty(true)}} placeholder="e.g. Google 2024" />
+                                        <input value={sourceTag} onChange={e => {setSourceTag(e.target.value); setIsDirty(true)}} />
                                     </div>
                                 </div>
 
@@ -408,7 +414,7 @@ const Notes = () => {
                                         <div className="rich-toolbar">
                                             {TOOLBAR_ACTIONS.map(a => <button key={a.label} onClick={() => exec(a.command)}>{a.label}</button>)}
                                             <button onClick={handleGenerateAiAnswer} className="ai-tool" disabled={aiLoading}>
-                                                <span className="material-symbols-outlined">magic_button</span> AI Answers
+                                                {aiLoading ? "Generating..." : "AI Answer"}
                                             </button>
                                         </div>
                                         <div 
@@ -416,32 +422,22 @@ const Notes = () => {
                                             className="custom-editor" 
                                             contentEditable 
                                             onInput={() => {setAnswer(editorRef.current.innerText); setIsDirty(true)}}
+                                            style={{ minHeight: '120px' }}
                                         />
                                     </div>
                                 </div>
 
                                 <button className="submit-btn" onClick={handleSaveNote} disabled={saveLoading}>
-                                    {saveLoading ? "SAVING..." : (activeId ? "UPDATE DRAFT" : "CREATE DRAFT")}
+                                    {saveLoading ? "SAVING..." : (activeId ? "UPDATE" : "CREATE")}
                                 </button>
                                 
                                 <div className="form-feedback">
-                                    {message && <p className="msg-success">{message}</p>}
-                                    {error && <p className="msg-error">{error}</p>}
+                                    {message && <p className="msg-success" style={{fontSize:'0.7rem'}}>{message}</p>}
+                                    {error && <p className="msg-error" style={{fontSize:'0.7rem'}}>{error}</p>}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                {/* EXPORT OPTION BELOW EVERYTHING */}
-                <div className="notes-export-footer card-glass">
-                    <div className="export-info">
-                        <span className="material-symbols-outlined">file_download</span>
-                        <p>{selectedIds.length} questions selected for export</p>
-                    </div>
-                    <button className="export-btn" onClick={handleExportSelected} disabled={!selectedIds.length}>
-                        DOWNLOAD SELECTED AS PDF
-                    </button>
                 </div>
             </section>
         </main>
