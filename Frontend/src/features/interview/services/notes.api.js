@@ -11,9 +11,9 @@ api.interceptors.request.use((config) => {
     return config;
 })
 
-export const getNotes = async ({ view = "all", search = "", domain = "" } = {}) => {
+export const getNotes = async ({ view = "all", search = "", domain = "", page = 1, limit = 20 } = {}) => {
     const response = await api.get("/api/notes", {
-        params: { view, search, domain }
+        params: { view, search, domain, page, limit }
     })
     return response.data
 }

@@ -5,14 +5,14 @@ import { useLocation, useNavigate } from 'react-router';
 
 /* Map route → page title */
 const PAGE_TITLES = {
-    '/dashboard':        'Dashboard',
-    '/':                 'Resume Analysis',
-    '/resume-optimizer': 'Resume Optimizer',
-    '/resume-builder':   'Resume Optimizer',
-    '/notes':            'Notes & Prep Space',
-    '/progress-tracker': 'Progress Tracker',
-    '/settings':         'Settings',
-    '/interview':        'Interview Report',
+    '/dashboard':        { title: 'Dashboard', desc: 'Welcome back to your preparation hub.' },
+    '/':                 { title: 'Resume Analysis', desc: 'Detailed skill gap analysis and tailored interview prep.' },
+    '/resume-optimizer': { title: 'Resume Optimizer', desc: 'Tailor your professional profile for specific roles.' },
+    '/resume-builder':   { title: 'Resume Optimizer', desc: 'Tailor your professional profile for specific roles.' },
+    '/notes':            { title: 'Notes & Prep Space', desc: 'Master core concepts and manage your interview bank.' },
+    '/progress-tracker': { title: 'Progress Tracker', desc: 'Monitor your growth and achieve your career goals.' },
+    '/settings':         { title: 'Settings', desc: 'Manage your profile and application preferences.' },
+    '/interview':        { title: 'Interview Report', desc: 'In-depth assessment and preparation roadmap.' },
 };
 
 const TopBar = ({ onMenuOpen }) => {
@@ -20,12 +20,11 @@ const TopBar = ({ onMenuOpen }) => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    /* Find the best matching title */
-    const pageTitle = Object.entries(PAGE_TITLES).find(([path]) =>
+    const pageInfo = Object.entries(PAGE_TITLES).find(([path]) =>
         path === '/'
             ? location.pathname === '/'
             : location.pathname.startsWith(path)
-    )?.[1] ?? 'IntelliPrep';
+    )?.[1] ?? { title: 'IntelliPrep', desc: 'Accelerate your career preparation.' };
 
     const displayName = user?.fullName || user?.username || '';
     const avatar = user?.avatar || '';
@@ -44,7 +43,10 @@ const TopBar = ({ onMenuOpen }) => {
                         <span className="material-symbols-outlined">menu</span>
                     </button>
                 )}
-                <h2 className="top-bar-title">{pageTitle}</h2>
+                <div className="top-bar-branding">
+                    <h2 className="top-bar-title">{pageInfo.title}</h2>
+                    <p className="top-bar-desc">{pageInfo.desc}</p>
+                </div>
             </div>
 
             {/* Right: notification bell + single user avatar */}

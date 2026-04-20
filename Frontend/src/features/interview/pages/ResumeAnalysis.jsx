@@ -74,10 +74,6 @@ const ResumeAnalysis = () => {
                 <TopBar />
 
                 <div className="home-content-container">
-                    <div className="page-header" style={{ marginBottom: '1.2rem' }}>
-                        <p className="kicker">CORE ANALYSIS</p>
-                        <p className="subtitle">Sync your career narrative with specific job mandates to generate a tailored preparation path.</p>
-                    </div>
 
                     <article className="analysis-builder">
                         <div className="analysis-builder__main">

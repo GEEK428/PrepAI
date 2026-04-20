@@ -265,9 +265,6 @@ const ProgressTracker = () => {
 
             <section className="dashboard-main progress-main">
                 <TopBar />
-                <div className="page-header" style={{ marginBottom: '1rem' }}>
-                    <p className="kicker">ANALYTICS</p>
-                </div>
 
                 <section className="progress-grid compact-2">
                     <article className="progress-card playcard glass">

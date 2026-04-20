@@ -263,8 +263,40 @@
 }
 
 /* --- Inline Export --- */
+.notes-pagination-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #9fd0f4;
+
+    button {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(146, 173, 196, 0.2);
+        color: #eaf2f8;
+        padding: 4px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+
+        &:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        &:hover:not(:disabled) {
+            background: rgba(111, 178, 227, 0.2);
+            border-color: #6fb2e3;
+        }
+    }
+}
+
 .notes-export-inline {
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     padding: 0.8rem;
     display: flex;
     justify-content: space-between;

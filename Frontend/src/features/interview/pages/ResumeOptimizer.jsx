@@ -115,10 +115,6 @@ const ResumeOptimizer = () => {
 
             <section className="dashboard-main resume-builder-main">
                 <TopBar />
-                <div className="page-header compact-header" style={{ marginBottom: '1rem' }}>
-                    <p className="kicker">CAREER TOOLS</p>
-                    <h1>RESUME OPTIMIZER</h1>
-                </div>
 
                 <section className="builder-grid">
                     <article className="upload-panel card-glass">

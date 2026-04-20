@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
 })
 
-const RESUME_AI_MODEL = "gemini-1.5-flash"
+const RESUME_AI_MODEL = "gemini-3-flash"
 
 function generateCacheKey(prefix, data) {
     const hash = crypto.createHash("md5").update(JSON.stringify(data)).digest("hex")
@@ -154,7 +154,8 @@ function escapeHtml(text = "") {
 
 function buildPremiumResumeHtml(data) {
     const { header, education, experience, projects, technicalSkills, achievements, interests } = data;
-    const linksHtml = (header.links || []).map(link => `<a href="${link.url}">${link.label}</a>`).join(" | ");
+    // Padded links for centered look
+    const linksHtml = (header.links || []).map(link => `<a href="${link.url}">${link.label}</a>`).join("&nbsp;&nbsp;&nbsp;&nbsp;");
 
     const escape = (t) => escapeHtml(t);
 
@@ -177,6 +178,7 @@ function buildPremiumResumeHtml(data) {
             ${edu.details?.length ? `<ul>${edu.details.map(d => `<li>${escape(d)}</li>`).join("")}</ul>` : ""}
         </div>`).join("");
 
+    // Experience/Activities section
     const experienceHtml = (experience || []).map(exp => `
         <div class="entry">
             <div class="entry-header">
@@ -200,7 +202,7 @@ function buildPremiumResumeHtml(data) {
         </div>`).join("");
 
     const skillsHtml = (technicalSkills || []).map(s => `
-        <p><strong>${escape(s.category)}:</strong> ${escape(s.skills)}</p>
+        <p style="margin: 2pt 0;"><strong>${escape(s.category)}:</strong> ${escape(s.skills)}</p>
     `).join("");
 
     const html = `
@@ -209,29 +211,29 @@ function buildPremiumResumeHtml(data) {
 <head>
     <meta charset="UTF-8">
     <style>
-        @page { size: A4; margin: 0.5in; }
+        @page { size: A4; margin: 0.4in; }
         body { 
             font-family: "Times New Roman", Times, serif; 
-            font-size: 10.5pt; 
-            line-height: 1.2; 
+            font-size: 10pt; 
+            line-height: 1.15; 
             color: #000; 
             margin: 0; 
             padding: 0;
         }
         .container { width: 100%; }
-        header { text-align: center; margin-bottom: 5pt; }
-        header h1 { font-size: 26pt; margin: 0; font-weight: normal; }
+        header { text-align: center; margin-bottom: 8pt; }
+        header h1 { font-size: 28pt; margin: 0; font-weight: normal; }
         header p { margin: 2pt 0; font-size: 10pt; }
-        header .links { margin-top: 2pt; }
-        header a { color: #000; text-decoration: underline; margin: 0 3pt; font-size: 10pt; }
+        header .links { margin-top: 4pt; }
+        header a { color: #000; text-decoration: underline; margin: 0; font-size: 10pt; }
         
-        .section { margin-top: 10pt; }
+        .section { margin-top: 12pt; }
         .section-title { 
             font-size: 11pt; 
             font-weight: bold; 
             text-transform: uppercase; 
-            border-bottom: 1.5pt solid #000; 
-            margin: 0 0 4pt; 
+            border-bottom: 1px solid #000; 
+            margin: 0 0 5pt; 
             padding-bottom: 1pt; 
         }
         
@@ -248,7 +250,7 @@ function buildPremiumResumeHtml(data) {
         
         ul { margin: 2pt 0 0 16pt; padding: 0; list-style-type: disc; }
         li { margin-bottom: 1pt; text-align: justify; }
-        p { margin: 2pt 0; }
+        p { margin: 0; }
     </style>
 </head>
 <body>
@@ -262,8 +264,8 @@ function buildPremiumResumeHtml(data) {
         ${section("EDUCATION", educationHtml)}
         ${section("PROJECTS", projectsHtml)}
         ${section("TECHNICAL SKILLS", skillsHtml)}
-        ${experience.length ? section("EXPERIENCE", experienceHtml) : ""}
         ${achievements.length ? section("ACHIEVEMENTS", "<ul>" + achievements.map(a => `<li>${escape(a)}</li>`).join("") + "</ul>") : ""}
+        ${experience.length ? section("EXPERIENCE", experienceHtml) : ""}
         ${interests.length ? section("INTERESTS", "<ul><li>" + escape(interests.join(", ")) + "</li></ul>") : ""}
     </div>
 </body>
@@ -292,12 +294,21 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     const source = String(resume || selfDescription || "").trim()
     if (!source) throw new Error("Resume content missing.")
 
-    const prompt = "Convert this candidate profile into a high-quality professional resume JSON. \nJob context: " + (jobDescription || "N/A") + "\nProfile: " + source + "\n\nRules:\n1. Extract Details and all links.\n2. Standard Academic Order.\n3. STAR Method points.\n4. No inventions.";
+    const prompt = `Convert this candidate profile into a high-quality professional resume JSON. 
+    Target Job: ${jobDescription || "N/A"}
+    Profile: ${source}
+
+    RULES:
+    1. STRICT PHOTO ALIGNMENT: Centered header, Bold capitalized sections with line below.
+    2. CONTENT: Star Method points, Standard Academic order.
+    3. SKILLS INJECTION: Automatically identify and ADD missing technical skills that are required for the "Target Job" but missing in "Profile", seamlessly integrating them into the Technical Skills section.
+    4. Bullet points for all projects and experience.
+    5. Sections must be: EDUCATION, PROJECTS, TECHNICAL SKILLS, ACHIEVEMENTS, EXPERIENCE, INTERESTS.`;
 
     const data = await generateStructuredJson({ 
         prompt, 
         schema: premiumResumeSchema,
-        cachePrefix: "resume-json",
+        cachePrefix: "resume-v2",
         cacheData: { resume, selfDescription, jobDescription } 
     })
     return generatePdfFromHtml(buildPremiumResumeHtml(data))

@@ -253,7 +253,7 @@ async function createNoteController(req, res) {
 }
 
 async function getNotesController(req, res) {
-    const { view = "all", search = "", domain = "" } = req.query
+    const { view = "all", search = "", domain = "", page = 1, limit = 20 } = req.query
     const query = { user: req.user.id }
 
     if (domain && NOTE_DOMAIN_MAP[domain]) {
@@ -282,11 +282,25 @@ async function getNotesController(req, res) {
         query.status = "done"
     }
 
-    const notes = await noteModel.find(query).sort({ updatedAt: -1 })
+    const currentPage = Math.max(1, Number(page || 1))
+    const currentLimit = Math.max(1, Number(limit || 20))
+    const skip = (currentPage - 1) * currentLimit
+
+    const [notes, totalCount] = await Promise.all([
+        noteModel.find(query)
+            .sort({ updatedAt: -1 })
+            .skip(skip)
+            .limit(currentLimit)
+            .lean(),
+        noteModel.countDocuments(query)
+    ])
 
     return res.status(200).json({
         message: "Notes fetched successfully.",
-        notes
+        notes,
+        totalCount,
+        totalPages: Math.ceil(totalCount / currentLimit),
+        currentPage
     })
 }
 

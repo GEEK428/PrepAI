@@ -90,9 +90,6 @@ const Dashboard = () => {
 
             <section className="dashboard-main" style={{ gap: '0.6rem' }}>
                 <TopBar />
-                <div className="page-header" style={{ marginBottom: '0.8rem', marginTop: '0.8rem' }}>
-                    <p className="kicker">WELCOME BACK, <span style={{color:"#eaf2f8", textTransform: 'none', fontWeight: 'bold'}}>{user?.fullName || user?.username || ''}</span></p>
-                </div>
 
                 {/* ── High Level Stats Grid ── */}
                 <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem', marginBottom: '0.5rem' }}>

@@ -157,16 +157,43 @@
     flex: 1;
     overflow: auto;
     background: #111;
-    padding: 2rem;
+    padding: 1.5rem;
     display: flex;
     justify-content: center;
+    align-items: flex-start;
 }
 
 .iframe-container {
-    width: 800px; /* A4-ish width */
-    height: 1130px; /* A4-ish height */
+    width: 800px;
+    height: 1130px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     background: white;
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .preview-scroll-area {
+        padding: 0.5rem;
+    }
+    .iframe-container {
+        transform: scale(0.7);
+        transform-origin: top center;
+        margin-bottom: -340px; /* Offset for scaled height */
+    }
+}
+
+@media (max-width: 600px) {
+    .iframe-container {
+        transform: scale(0.45);
+        margin-bottom: -620px;
+    }
+}
+
+@media (max-width: 400px) {
+    .iframe-container {
+        transform: scale(0.35);
+        margin-bottom: -740px;
+    }
 }
 
 .resume-iframe {

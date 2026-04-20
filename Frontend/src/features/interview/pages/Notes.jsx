@@ -48,6 +48,11 @@ const Notes = () => {
     const [saveLoading, setSaveLoading] = useState(false)
     const [isCreatingNew, setIsCreatingNew] = useState(true)
     
+    // Pagination
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
+
     // Original Filter States
     const [filterDomain, setFilterDomain] = useState("all")
     const [filterSubdomain, setFilterSubdomain] = useState("all")
@@ -70,30 +75,14 @@ const Notes = () => {
 
     const activeNote = useMemo(() => notes.find((item) => item._id === activeId) || null, [ notes, activeId ])
     
-    const displayedNotes = useMemo(() => {
-        const q = search.trim().toLowerCase()
-        return notes.filter((note) => {
-            if (filterDomain !== "all" && note.domain !== filterDomain) return false
-            if (filterSubdomain !== "all" && note.subdomain !== filterSubdomain) return false
-            if (filterDifficulty !== "all" && note.difficulty !== filterDifficulty) return false
-            if (filterUnderstanding === "understood" && note.status !== "done") return false
-            if (filterUnderstanding === "needs_revision" && note.status !== "needs_revision") return false
-            if (filterBookmarked === "yes" && !note.bookmarked) return false
-            if (filterBookmarked === "no" && note.bookmarked) return false
-            if (filterConfidence !== "all" && Number(note.confidence || 3) !== Number(filterConfidence)) return false
-            if (!q) return true
-            const haystack = [note.question, note.answer, note.domain, note.subdomain, note.sourceTag].join(" ").toLowerCase()
-            return haystack.includes(q)
-        })
-    }, [ notes, filterDomain, filterSubdomain, filterDifficulty, filterUnderstanding, filterBookmarked, filterConfidence, search ])
-
     const stats = useMemo(() => {
+        // Stats represent the global picture, but since we have pagination, 
+        // we might prefer global stats from an overview API. 
+        // For now, we calculate from the current page's notes or state.
         const understood = notes.filter((item) => item.status === "done").length
-        const needsRevision = notes.filter((item) => item.status === "needs_revision").length
-        const total = notes.length
-        const successRate = total ? Math.round((understood / total) * 100) : 0
+        const total = totalCount || notes.length
+        const successRate = total ? Math.round((understood / notes.length) * 100) : 0
         
-        // Categories Mastered Logic
         const domainCounts = {}
         notes.forEach(n => {
             domainCounts[n.domain] = (domainCounts[n.domain] || { total: 0, done: 0 })
@@ -102,24 +91,41 @@ const Notes = () => {
         })
         const mastered = Object.values(domainCounts).filter(d => d.total > 0 && d.done === d.total).length
 
-        return { understood, needsRevision, successRate, total, mastered }
-    }, [ notes ])
+        return { understood, successRate, total, mastered }
+    }, [ notes, totalCount ])
 
     const pieChartStyle = useMemo(() => {
-        const total = Math.max(1, stats.total)
-        return { background: `conic-gradient(#00cfb1 0deg ${(stats.understood / total) * 360}deg, #151d28 ${(stats.understood / total) * 360}deg 360deg)` }
-    }, [ stats ])
+        const total = Math.max(1, notes.length)
+        const understood = notes.filter(n => n.status === "done").length
+        return { background: `conic-gradient(#00cfb1 0deg ${(understood / total) * 360}deg, #151d28 ${(understood / total) * 360}deg 360deg)` }
+    }, [ notes ])
 
-    const loadNotes = async () => {
+    const loadNotes = async (p = page) => {
         setLoading(true)
         try {
-            const response = await getNotes({ view: "all" })
+            const response = await getNotes({ 
+                view: "all", 
+                page: p, 
+                limit: 15,
+                domain: filterDomain === "all" ? "" : filterDomain
+            })
             setNotes(response?.notes || [])
+            setTotalPages(response?.totalPages || 1)
+            setTotalCount(response?.totalCount || 0)
         } catch (err) { setError("Unable to load notes.") }
         finally { setLoading(false) }
     }
 
-    useEffect(() => { loadNotes() }, [])
+    useEffect(() => { loadNotes(1); setPage(1) }, [ filterDomain, filterSubdomain, filterDifficulty, filterUnderstanding, filterBookmarked, filterConfidence ])
+    
+    // Search with debounce logic would be better but simple reload for now
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadNotes(1)
+            setPage(1)
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [ search ])
 
     useEffect(() => {
         if (!activeNote) return
@@ -135,7 +141,7 @@ const Notes = () => {
         setConfidence(activeNote.confidence || 3)
         if (editorRef.current) editorRef.current.innerHTML = activeNote.answerHtml || activeNote.answer || ""
         setIsDirty(false)
-    }, [ activeNote ])
+    }, [ activeId ])
 
     const handleSaveNote = async () => {
         if (!question.trim()) return setError("Question is required.")
@@ -179,9 +185,7 @@ const Notes = () => {
         } catch (err) { setError("Delete failed.") }
     }
 
-    const toggleSelect = (id) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
-    }
+    const toggleSelect = id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
 
     const handleExportSelected = async () => {
         if (!selectedIds.length) {
@@ -215,7 +219,7 @@ const Notes = () => {
         finally { setAiLoading(false) }
     }
 
-    const exec = (cmd) => {
+    const exec = cmd => {
         document.execCommand(cmd, false, null)
         setAnswer(editorRef.current?.innerText || "")
         setIsDirty(true)
@@ -237,28 +241,27 @@ const Notes = () => {
                         <span className="material-symbols-outlined search-icon">search</span>
                         <input
                             className="notes-search"
-                            placeholder="Search by keywords..."
+                            placeholder="Search keywords..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
                 </div>
                 
-                {/* STATS HEADER */}
                 <header className="notes-optimized-header compact-view">
                     <div className="velocity-card card-glass small-card">
                         <div className="velocity-header">
                             <p>PREPARATION SCORE</p>
                             <div className="velocity-main">
                                 <h1>{stats.successRate}%</h1>
-                                <span className="velocity-meta">Questions prepared vs total</span>
+                                <span className="velocity-meta">Score on current page</span>
                             </div>
                         </div>
                         <div className="velocity-pie-wrap">
                             <div className="velocity-pie small-pie" style={pieChartStyle}>
                                 <div className="velocity-pie-inner">
-                                    <p>PROGRESS</p>
-                                    <strong>{stats.understood} / {stats.total}</strong>
+                                    <p>TOTAL</p>
+                                    <strong>{stats.total}</strong>
                                 </div>
                             </div>
                         </div>
@@ -266,7 +269,7 @@ const Notes = () => {
                     
                     <div className="streak-card card-glass small-card">
                         <span className="material-symbols-outlined streak-icon small-icon">workspace_premium</span>
-                        <p>DOMAINS MASTERED</p>
+                        <p>MASTERED</p>
                         <h1>{stats.mastered}</h1>
                     </div>
                 </header>
@@ -274,7 +277,7 @@ const Notes = () => {
                 <div className="notes-content-grid">
                     <div className="notes-column-left">
                         <div className="column-head">
-                            <h2>Active Question Bank</h2>
+                            <h2>Questions ({totalCount})</h2>
                             <div className="column-head-actions">
                                 <button className="filter-chip icon-only" onClick={() => setShowFilterOptions(!showFilterOptions)}>
                                     <span className="material-symbols-outlined">filter_list</span>
@@ -287,7 +290,7 @@ const Notes = () => {
 
                         {showFilterOptions && (
                             <div className="notes-quick-filters card-glass anim-fade">
-                                <div className="filter-grid">
+                                <div className="filter-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                                     <label>Domain
                                         <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
                                             <option value="all">All</option>
@@ -307,7 +310,7 @@ const Notes = () => {
                         )}
 
                         <div className="notes-card-list scroll-area">
-                            {displayedNotes.map((note) => (
+                            {notes.map((note) => (
                                 <article 
                                     key={note._id} 
                                     className={`note-card card-glass compact-card ${activeId === note._id ? 'active' : ''}`}
@@ -332,13 +335,19 @@ const Notes = () => {
                                     </div>
                                 </article>
                             ))}
-                            {!loading && !displayedNotes.length && <p className="empty-msg">No questions found.</p>}
+                            {!loading && !notes.length && <p className="empty-msg">No questions found.</p>}
                             {loading && <Loader />}
                         </div>
 
-                        {/* EXPORT OPTIONS MOVED HERE (JUST BELOW LIST) */}
+                        {/* PAGINATION CONTROLS */}
+                        <div className="notes-pagination-bar">
+                            <button disabled={page <= 1} onClick={() => { setPage(p => p - 1); loadNotes(page - 1) }}>Prev</button>
+                            <span>Page {page} of {totalPages}</span>
+                            <button disabled={page >= totalPages} onClick={() => { setPage(p => p + 1); loadNotes(page + 1) }}>Next</button>
+                        </div>
+
                         <div className="notes-export-inline card-glass">
-                            <p>{selectedIds.length} questions selected</p>
+                            <p>{selectedIds.length} selected</p>
                             <button className="export-btn-compact" onClick={handleExportSelected}>
                                 <span className="material-symbols-outlined">download</span> EXPORT PDF
                             </button>
@@ -349,7 +358,7 @@ const Notes = () => {
                         <div className="prep-form-card card-glass">
                             <div className="form-head">
                                 <span className="material-symbols-outlined add-circle">{activeId ? "edit" : "add_circle"}</span>
-                                <h2>{activeId ? "Edit Question" : "New Question"}</h2>
+                                <h2>{activeId ? "Edit" : "New"} Question</h2>
                             </div>
 
                             <div className="form-body">
@@ -414,14 +423,14 @@ const Notes = () => {
                                         <div className="rich-toolbar">
                                             {TOOLBAR_ACTIONS.map(a => <button key={a.label} onClick={() => exec(a.command)}>{a.label}</button>)}
                                             <button onClick={handleGenerateAiAnswer} className="ai-tool" disabled={aiLoading}>
-                                                {aiLoading ? "Generating..." : "AI Answer"}
+                                                {aiLoading ? "Thinking..." : "AI Answer"}
                                             </button>
                                         </div>
                                         <div 
                                             ref={editorRef} 
                                             className="custom-editor" 
                                             contentEditable 
-                                            onInput={() => {setAnswer(editorRef.current.innerText); setIsDirty(true)}}
+                                            onInput={() => setAnswer(editorRef.current.innerText)}
                                             style={{ minHeight: '120px' }}
                                         />
                                     </div>

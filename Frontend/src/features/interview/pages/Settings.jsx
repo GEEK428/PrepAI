@@ -271,9 +271,6 @@ const Settings = () => {
 
             <section className="dashboard-main settings-main">
                 <TopBar />
-                <div className="page-header" style={{ marginBottom: '1rem' }}>
-                    <p className="subtitle">Update your profile, change password, or manage your account.</p>
-                </div>
 
                 <section className="settings-grid">
                     <article className="settings-card">
