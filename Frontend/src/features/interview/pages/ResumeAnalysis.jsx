@@ -21,6 +21,11 @@ const ResumeAnalysis = () => {
     const [modalPage, setModalPage] = useState(1);
     const MODAL_PAGE_SIZE = 10;
 
+    const [historyPage, setHistoryPage] = useState(1);
+    const HISTORY_PAGE_SIZE = 4;
+    const paginatedReports = reports.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
+    const totalHistoryPages = Math.ceil(reports.length / HISTORY_PAGE_SIZE);
+
     useEffect(() => {
         document.title = "Resume Analysis | IntelliPrep"
         getReports()
@@ -68,10 +73,6 @@ const ResumeAnalysis = () => {
         )
     }
 
-    const [historyPage, setHistoryPage] = useState(1);
-    const HISTORY_PAGE_SIZE = 4;
-    const paginatedReports = reports.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
-    const totalHistoryPages = Math.ceil(reports.length / HISTORY_PAGE_SIZE);
 
     return (
         <main className="dashboard-page">
