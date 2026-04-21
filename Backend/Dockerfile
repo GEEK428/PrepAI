@@ -1,7 +1,6 @@
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # Install chromium and minimal dependencies for puppeteer PDF generation
-# Using bookworm-slim as it's smaller and secure
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
@@ -14,6 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxkbcommon0 \
     libgbm1 \
     libasound2 \
+    libatspi0 \
+    libx11-xcb1 \
+    libcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for Puppeteer
