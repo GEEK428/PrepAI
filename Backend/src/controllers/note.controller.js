@@ -1,5 +1,6 @@
 const { noteModel, NOTE_DOMAIN_MAP } = require("../models/note.model")
 const { generatePdfFromHtml, generateNoteAnswer } = require("../services/ai.service")
+const { recordActivity } = require("../services/progress.service")
 const pdfParse = require("pdf-parse")
 const mammoth = require("mammoth")
 const WordExtractor = require("word-extractor")
@@ -245,6 +246,9 @@ async function createNoteController(req, res) {
         confidence: Math.max(1, Math.min(5, Number(confidence || 3))),
         spacedRepetitionDueAt: computeSpacedRepetitionDate(status)
     })
+
+    // Record activity for streak
+    await recordActivity(req.user.id)
 
     return res.status(201).json({
         message: "Note created successfully.",
@@ -566,6 +570,9 @@ async function generateAiAnswerController(req, res) {
             difficulty
         })
 
+        // Record activity for streak
+        await recordActivity(req.user.id)
+
         return res.status(200).json({
             message: "AI answer generated successfully.",
             aiAnswer
@@ -654,6 +661,9 @@ async function importNoteFromPdfController(req, res) {
 
     const notes = await noteModel.insertMany(payload)
     const skippedCount = Math.max(0, splitNotes.length - notes.length)
+
+    // Record activity for streak
+    await recordActivity(req.user.id)
 
     return res.status(201).json({
         message: notes.length === 1

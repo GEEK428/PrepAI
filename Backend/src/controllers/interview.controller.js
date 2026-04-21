@@ -6,6 +6,7 @@ const fs = require("fs/promises")
 const path = require("path")
 const crypto = require("crypto")
 const { generateInterviewReport, generateResumePdf, generatePdfFromHtml } = require("../services/ai.service")
+const { recordActivity } = require("../services/progress.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
 function resolvePdfParseFn() {
@@ -237,6 +238,9 @@ async function generateInterViewReportController(req, res) {
         ...interViewReportByAi
     })
 
+    // Record activity for streak
+    await recordActivity(req.user.id)
+
     res.status(201).json({
         message: "Interview report generated successfully.",
         interviewReport
@@ -430,6 +434,10 @@ async function generateResumePdfController(req, res) {
         "Content-Disposition": `attachment; filename=resume_${interviewReportId}.pdf`,
         "X-Cache": "MISS"
     })
+
+    // Record activity for streak
+    await recordActivity(req.user.id)
+
     return res.send(pdfBuffer)
 }
 

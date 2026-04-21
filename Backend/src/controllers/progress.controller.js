@@ -4,6 +4,7 @@ const progressLogModel = require("../models/progressLog.model")
 const notificationModel = require("../models/notification.model")
 const interviewReportModel = require("../models/interviewReport.model")
 const { progressProfileModel, SKILL_KEYS } = require("../models/progressProfile.model")
+const { recordActivity } = require("../services/progress.service")
 
 const DAY_ORDER = [ "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" ]
 
@@ -308,22 +309,8 @@ async function createCheckinController(req, res) {
         { upsert: true, new: true }
     )
 
-    const profile = await ensureProfile(req.user.id)
-    const today = startOfDay(new Date())
-    const last = profile.lastActiveDate ? startOfDay(profile.lastActiveDate) : null
-    const diffDays = last ? Math.round((today - last) / (1000 * 60 * 60 * 24)) : null
-
-    if (!last) {
-        profile.currentStreak = 1
-    } else if (diffDays === 1) {
-        profile.currentStreak += 1
-    } else if (diffDays > 1) {
-        profile.currentStreak = 1
-    }
-
-    profile.longestStreak = Math.max(profile.longestStreak || 0, profile.currentStreak || 0)
-    profile.lastActiveDate = today
-    await profile.save()
+    // Use shared service for streak logic
+    const profile = await recordActivity(req.user.id)
 
     return res.status(201).json({
         message: "Check-in saved.",
