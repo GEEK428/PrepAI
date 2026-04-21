@@ -4,9 +4,17 @@ const cors = require("cors")
 const helmet = require("helmet")
 const compression = require("compression")
 const { rateLimit } = require("express-rate-limit")
+const { RedisStore } = require("rate-limit-redis")
+const { redisClient } = require("./utils/redis")
 const requestLogger = require("./middlewares/logger.middleware")
 
 const app = express()
+
+// Global Store for Rate Limiting (Redis preference, Fallback to Memory)
+const store = redisClient ? new RedisStore({
+    sendCommand: (...args) => redisClient.call(...args),
+    prefix: "rl:", // Rate Limit prefix
+}) : undefined;
 
 // Security & Performance Middlewares
 app.use(helmet())
@@ -16,25 +24,45 @@ app.use(requestLogger)
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 100, // Limit each IP to 100 requests per windowMs
-    standardHeaders: 'draft-7', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: { message: "Too many requests from this IP, please try again after 15 minutes." }
+    limit: 1000, // Increased to 1000 to allow busy sessions
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    store,
+    skip: (req) => {
+        // Don't rate limit pre-flight or health checks (Uptime Robot)
+        return req.method === 'OPTIONS' || req.path === '/api/health' || req.originalUrl === '/api/health';
+    },
+    message: { message: "Too many requests from this IP, please try again later." }
 })
 app.use(limiter)
 
 // Stricter limit specifically for AI routes — they're expensive
 const aiLimiter = rateLimit({
-    windowMs: 60 * 1000,  // 1 minute
-    limit: 5,             // max 5 AI calls per minute per IP
+    windowMs: 60 * 1000, 
+    limit: 15, // Relaxed to 15 per minute
     standardHeaders: 'draft-7',
     legacyHeaders: false,
+    store, // Reuse the same Redis store
+    skip: (req) => req.method === 'OPTIONS',
     message: { message: "AI request limit reached. Please wait a moment." }
 })
 
 // Apply strict limit to AI routes specifically
-app.use("/api/interview/generate", aiLimiter)
+app.use("/api/interview/resume/pdf", aiLimiter)
 app.use("/api/notes/ai-answer", aiLimiter)
+app.use("/api/interview/generate", aiLimiter)
+
+// Safety: Global Request Timeout Middleware (90s)
+app.use((req, res, next) => {
+    const timeout = 90000;
+    res.setTimeout(timeout, () => {
+        console.error(`[TIMEOUT] Request to ${req.originalUrl} timed out after ${timeout/1000}s`);
+        if (!res.headersSent) {
+            res.status(503).json({ message: "Service temporarily delayed. Please try again." });
+        }
+    });
+    next();
+});
 
 app.use(express.json({ limit: "2mb" }))
 app.use(cookieParser())
@@ -56,6 +84,10 @@ app.use(cors({
 
 app.get("/api/health", (req, res) => {
     return res.status(200).json({ ok: true, service: "backend", timestamp: new Date().toISOString() })
+})
+
+app.get("/", (req, res) => {
+    return res.status(200).json({ message: "IntelliPrep API is running.", version: "1.0.0" })
 })
 
 /* require all the routes here */

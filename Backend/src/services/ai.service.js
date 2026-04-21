@@ -74,14 +74,19 @@ async function callAiWithRetry(prompt, schema) {
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 console.log(`[AI-Service] Trying ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
-                const response = await ai.models.generateContent({
-                    model,
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: zodToJsonSchema(schema),
-                    }
-                });
+                
+                // Add 30s timeout to AI call
+                const response = await Promise.race([
+                    ai.models.generateContent({
+                        model,
+                        contents: [{ role: "user", parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: zodToJsonSchema(schema),
+                        }
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error(`AI Request timed out after 30s on ${model}`)), 30000))
+                ]);
 
                 const rawText = extractResponseText(response);
                 if (!rawText) throw new Error("Empty response from AI model");
@@ -394,21 +399,34 @@ let _activePages = 0;
 const MAX_PAGES = 2;
 
 async function generatePdfFromHtml(htmlContent) {
-    // Wait for a slot if the server is busy
+    const startWait = Date.now();
+    // Wait for a slot if the server is busy, but max 20s
     while (_activePages >= MAX_PAGES) {
+        if (Date.now() - startWait > 20000) {
+            console.error("[Puppeteer] Concurrency timeout - too many active pages.");
+            throw new Error("Server is currently busy. Please try again in a few seconds.");
+        }
         await new Promise(r => setTimeout(r, 500));
     }
     
     _activePages++;
-    const browser = await getBrowser();
+    let browser = null;
     let page = null;
     try {
-        page = await browser.newPage();
+        browser = await getBrowser();
+        
+        // Timeout for newPage() creation to prevent hanging zombied browsers
+        page = await Promise.race([
+            browser.newPage(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Browser Page creation timed out")), 15000))
+        ]);
+
         /* Set a 25s timeout for the whole PDF process */
         await Promise.race([
             page.setContent(htmlContent, { waitUntil: "networkidle0" }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("PDF generation timed out")), 25000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("PDF content loading timed out")), 25000))
         ]);
+        
         return await page.pdf({ 
             format: "A4", 
             margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" }, 
@@ -416,6 +434,10 @@ async function generatePdfFromHtml(htmlContent) {
         });
     } catch (err) {
         console.error("[Puppeteer] PDF Generation Error:", err.message);
+        // If the browser seems zombied, force disconnect it so it restarts next time
+        if (err.message.includes("Page creation timed out") || err.message.includes("Protocol error")) {
+            _browserInstance = null; 
+        }
         throw err;
     } finally {
         _activePages--; // Release slot
