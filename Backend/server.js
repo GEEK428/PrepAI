@@ -11,8 +11,16 @@ const server = http.createServer(app)
 const REQUIRED_ENVS = ["MONGO_URI", "JWT_SECRET"];
 
 async function bootstrap() {
+    /* Global Error Handlers to prevent crashing on free tier */
+    process.on('uncaughtException', (err) => {
+        console.error('[CRITICAL] Uncaught Exception:', err.message, err.stack);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+
     try {
-        // Validate environment variables
         const missing = REQUIRED_ENVS.filter(key => !process.env[key]);
         if (missing.length > 0) {
             throw new Error(`Missing required environment variables: ${missing.join(", ")}`);

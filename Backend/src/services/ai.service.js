@@ -366,11 +366,21 @@ async function generatePdfFromHtml(htmlContent) {
             ],
             headless: "new"
         })
+        /* Set a 25s timeout for the whole PDF process to prevent hanging on free tier */
         const page = await browser.newPage()
-        await page.setContent(htmlContent, { waitUntil: "networkidle0" })
+        await Promise.race([
+            page.setContent(htmlContent, { waitUntil: "networkidle0" }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("PDF generation timed out")), 25000))
+        ]);
         return await page.pdf({ format: "A4", margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" }, printBackground: true })
     } finally {
-        if (browser) await browser.close()
+        if (browser) {
+            try {
+                await browser.close()
+            } catch (err) {
+                console.error("[AI-Service] Failed to close browser:", err.message)
+            }
+        }
     }
 }
 
