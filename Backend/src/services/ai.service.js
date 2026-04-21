@@ -337,10 +337,10 @@ function buildPremiumResumeHtml(data) {
         </header>
 
         ${section("EDUCATION", educationHtml)}
+        ${section("EXPERIENCE", experienceHtml)}
         ${section("PROJECTS", projectsHtml)}
         ${section("TECHNICAL SKILLS", skillsHtml)}
         ${achievements.length ? section("ACHIEVEMENTS", "<ul>" + achievements.map(a => `<li>${escape(a)}</li>`).join("") + "</ul>") : ""}
-        ${experience.length ? section("EXPERIENCE", experienceHtml) : ""}
         ${interests.length ? section("INTERESTS", "<ul><li>" + escape(interests.join(", ")) + "</li></ul>") : ""}
     </div>
 </body>
@@ -389,7 +389,7 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     4. CONTENT: Star Method points, Standard Academic order.
     5. SKILLS INJECTION: Automatically identify and ADD missing technical skills that are required for the "Target Job" but missing in "Profile", seamlessly integrating them into the Technical Skills section.
     6. Bullet points for all projects and experience. If a project has a link, fill the "link" field in the projects array.
-    7. Sections must be: EDUCATION, PROJECTS, TECHNICAL SKILLS, ACHIEVEMENTS, EXPERIENCE, INTERESTS.
+    7. Sections must be in this EXACT order: EDUCATION, EXPERIENCE, PROJECTS, TECHNICAL SKILLS, ACHIEVEMENTS, INTERESTS.
     8. Links: METICULOUSLY identify ALL personal and professional links (LinkedIn, GitHub, Portfolio, LeetCode, Codeforces, etc.) present anywhere in the "Profile" text. Include them in the "header.links" array with appropriate labels. Ensure ALL urls are absolute (start with https://).
     9. Keep bullet points concise (max 1.5 lines each) to fit everything on one page.
     Return ONLY raw JSON matching the schema format:
@@ -406,7 +406,7 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     const data = await generateStructuredJson({ 
         prompt, 
         schema: premiumResumeSchema,
-        cachePrefix: "resume-v3",
+        cachePrefix: "resume-v4",
         cacheData: { resume, selfDescription, jobDescription } 
     })
     return generatePdfFromHtml(buildPremiumResumeHtml(data))
