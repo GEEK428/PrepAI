@@ -370,6 +370,16 @@
     font-size: 1.32rem;
     font-weight: 700;
     color: #d9ecff;
+
+    &.streak-current {
+        color: #87cefa;
+        text-shadow: 0 0 10px rgba(135, 206, 250, 0.4);
+    }
+
+    &.streak-max {
+        color: #ffd700;
+        text-shadow: 0 0 12px rgba(255, 215, 0, 0.45);
+    }
 }
 
 .trend-chip {

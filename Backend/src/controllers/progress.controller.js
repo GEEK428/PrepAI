@@ -415,6 +415,10 @@ async function getStatsController(req, res) {
 async function getOverviewController(req, res) {
     try {
         const weekStart = startOfWeekMonday(new Date())
+        
+        // Trigger activity pulse on load
+        await recordActivity(req.user.id)
+
         const [ profile, goals, roadmap, latestReports ] = await Promise.all([
             ensureProfile(req.user.id),
             goalModel.find({ user: req.user.id }).sort({ createdAt: -1 }).lean(),

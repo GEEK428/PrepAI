@@ -34,7 +34,11 @@ async function recordActivity(userId) {
                 profile.currentStreak = 1;
                 profile.lastActiveDate = today;
             }
-            // If diffDays === 0, they already were active today, so we do nothing to the streak.
+            // Ensure even if initialized at 0, activity today makes it at least 1
+            if (profile.currentStreak === 0) {
+                profile.currentStreak = 1;
+                profile.lastActiveDate = today;
+            }
         }
 
         // Update longest streak if necessary

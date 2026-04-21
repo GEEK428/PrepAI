@@ -447,7 +447,13 @@ const ProgressTracker = () => {
                     </article>
                     <article className="progress-card stat-tile glass">
                         <h3>Current Streak</h3>
-                        <p className="big">{stats?.streak?.current || 0} days</p>
+                        <p className="big streak-current">{stats?.streak?.current || 0} days</p>
+                        <p className="notes-meta">Keep it up! 🔥</p>
+                    </article>
+                    <article className="progress-card stat-tile glass">
+                        <h3>Max Streak Achieved</h3>
+                        <p className="big streak-max">{stats?.streak?.longest || 0} days</p>
+                        <p className="notes-meta">Your all-time peak.</p>
                     </article>
                 </section>
 
