@@ -121,7 +121,7 @@ async function generateStructuredJson({ prompt, schema, cachePrefix = null, cach
 
         // 2. Save to Redis for future hits
         if (cacheKey) {
-            await setCache(cacheKey, validated, 43200); // Cache for 12 hours
+            await setCache(cacheKey, validated, 604800); // Cache for 7 days
         }
 
         return validated;
@@ -345,7 +345,16 @@ async function generatePdfFromHtml(htmlContent) {
     try {
         browser = await puppeteerLib.launch({
             executablePath: process.env.NODE_ENV === "production" ? "/usr/bin/chromium" : undefined,
-            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"],
+            args: [
+                "--no-sandbox", 
+                "--disable-setuid-sandbox", 
+                "--disable-dev-shm-usage", 
+                "--single-process",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-extensions",
+                "--font-render-hinting=none"
+            ],
             headless: "new"
         })
         const page = await browser.newPage()

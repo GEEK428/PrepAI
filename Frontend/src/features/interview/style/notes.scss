@@ -10,9 +10,11 @@
 .notes-quick-filters {
     margin-bottom: 1rem;
     padding: 1rem;
-    background: rgba(22, 33, 46, 0.9);
     
     .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
         label {
             display: flex;
             flex-direction: column;
@@ -90,25 +92,31 @@
 .column-head-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
     flex-wrap: nowrap;
 }
 
 .filter-chip {
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(146, 173, 196, 0.1);
     color: #9fd0f4;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     white-space: nowrap;
+    transition: all 0.2s ease;
 
     .material-symbols-outlined {
-        font-size: 1rem;
+        font-size: 1.1rem;
+    }
+
+    &:hover:not(:disabled) {
+        background: rgba(111, 178, 227, 0.1);
+        border-color: rgba(111, 178, 227, 0.4);
     }
 
     &:disabled {
@@ -123,13 +131,42 @@
 .notes-card-list {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    max-height: 60vh;
+    gap: 0.8rem;
+    max-height: 65vh;
     overflow-y: auto;
+    padding-right: 4px;
+
+    &::-webkit-scrollbar {
+        width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    &::-webkit-scrollbar-thumb {
+        background: rgba(163, 161, 255, 0.1);
+        border-radius: 10px;
+    }
+}
+
+.note-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
+
+    &:hover {
+        transform: translateX(4px);
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-color: rgba(163, 161, 255, 0.1) !important;
+    }
+
+    &.active {
+        background: rgba(163, 161, 255, 0.05) !important;
+        border-color: rgba(163, 161, 255, 0.3) !important;
+    }
 }
 
 .compact-card {
-    padding: 0.8rem !important;
+    padding: 1rem !important;
 }
 
 .compact-h3 {
@@ -256,12 +293,19 @@
 
 .custom-editor {
     background: rgba(15, 23, 31, 0.8);
-    border: 1px solid rgba(146, 173, 196, 0.2);
+    border: 1px solid rgba(146, 173, 196, 0.15);
     border-top: none;
-    min-height: 120px;
-    padding: 0.5rem;
-    font-size: 0.8rem;
+    min-height: 150px;
+    padding: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
     overflow-y: auto;
+    outline: none;
+    transition: border-color 0.2s ease;
+
+    &:focus {
+        border-color: rgba(163, 161, 255, 0.3);
+    }
 }
 
 .submit-btn {

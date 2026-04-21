@@ -159,21 +159,30 @@ const ResumeAnalysis = () => {
                             </div>
                         ) : (
                             <div className="inline-pagination-container">
-                                <ul className="recent-plans-list" style={{ gap: '0.5rem' }}>
+                                <ul className="recent-plans-list" style={{ gap: '0.8rem' }}>
                                     {paginatedReports.map(report => {
                                         const dateLabel = new Date(report.createdAt).toLocaleDateString();
                                         return (
-                                        <li key={report._id} className="plan-item" style={{ padding: '0.6rem' }}>
-                                            <div className="plan-meta" style={{ flex: 1 }}>
+                                        <li key={report._id} className="plan-item" onClick={() => navigate(`/interview/${report._id}`)}>
+                                            <div className="plan-icon">
+                                                <span className="material-symbols-outlined" style={{ color: '#a3a1ff' }}>analytics</span>
+                                            </div>
+                                            <div className="plan-meta">
                                                 <div className="plan-title-row">
-                                                    <h3 style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={report.title}>{report.title || 'Untitled Position'}</h3>
-                                                    {report.matchScore && <span className="match-badge" style={{ fontSize: '0.6rem', padding: '2px 4px' }}>{report.matchScore}%</span>}
+                                                    <h3 title={report.title}>{report.title || 'Untitled Position'}</h3>
+                                                    {report.matchScore && <span className="match-badge">{report.matchScore}%</span>}
                                                 </div>
-                                                <p className="plan-subtitle" style={{ fontSize: '0.65rem' }}>{dateLabel}</p>
+                                                <p className="plan-subtitle">{dateLabel}</p>
+                                            </div>
+                                            <div className="readiness-col">
+                                                <span className="readiness-label">READINESS</span>
+                                                <div className="readiness-bar">
+                                                    <div className="bar-fill" style={{ width: `${report.matchScore || 0}%` }}></div>
+                                                </div>
                                             </div>
                                             <div className="plan-actions">
-                                                <button onClick={() => navigate(`/interview/${report._id}`)} style={{ padding: '4px' }}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>visibility</span>
+                                                <button onClick={(e) => { e.stopPropagation(); navigate(`/interview/${report._id}`) }}>
+                                                    <span className="material-symbols-outlined">visibility</span>
                                                 </button>
                                             </div>
                                         </li>

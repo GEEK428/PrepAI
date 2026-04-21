@@ -281,8 +281,8 @@ const Notes = () => {
                         </div>
 
                         {showFilterOptions && (
-                            <div className="notes-quick-filters card-glass anim-fade" style={{ padding: '0.8rem', marginBottom: '0.8rem' }}>
-                                <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                            <div className="notes-quick-filters card-glass anim-fade">
+                                <div className="filter-grid">
                                     <label>Domain
                                         <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
                                             <option value="all">All Domains</option>
