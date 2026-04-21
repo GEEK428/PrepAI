@@ -1,12 +1,9 @@
-require("dotenv").config();
-const { GoogleGenAI } = require("@google/genai");
-const { z } = require("zod");
-const { zodToJsonSchema } = require("zod-to-json-schema");
-const crypto = require("crypto");
-const { getCache, setCache } = require("../utils/redis");
+import { GoogleGenAI } from "@google/genai"
+import crypto from "crypto"
+import { zodToJsonSchema } from "zod-to-json-schema"
+import { interviewReportSchema, premiumResumeSchema, noteAnswerSchema } from "../models/ai.schemas"
 
-const ensureAbsoluteUrl = (url) => {
-    if (!url) return "";
+const ensureAbsoluteUrl = (url = "") => {
     const s = url.trim();
     if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("mailto:") || s.startsWith("tel:")) {
         return s;
@@ -15,7 +12,7 @@ const ensureAbsoluteUrl = (url) => {
 };
 let puppeteerLib = null;
 
-const RESUME_AI_MODEL = "gemini-3-flash-preview"; 
+const RESUME_AI_MODEL = "gemini-2.0-flash-exp"; 
 
 let aiInstance = null;
 function getAi() {
@@ -36,11 +33,9 @@ function generateCacheKey(prefix, data) {
 
 function extractResponseText(response) {
     if (!response) return ""
-    // Check if it's the result object directly (sometimes @google/genai returns this)
     if (typeof response.text === "string") return response.text
     if (typeof response.text === "function") return response.text()
     
-    // Check candidates
     const candidates = response.candidates || response.result?.candidates
     if (candidates && candidates[0]) {
         const parts = candidates[0].content?.parts
@@ -55,19 +50,19 @@ function safeParseJson(rawText = "") {
     try {
         return JSON.parse(text)
     } catch (err) {
-        // Handle common markdown artifacts like ```json or ```javascript
         const fenced = text.match(/```(?:\w+)?\s*([\s\S]*?)\s*```/i)
         if (fenced?.[1]) return JSON.parse(fenced[1].trim())
         throw new Error("AI returned malformed JSON: " + text.slice(0, 100));
     }
 }
 
-const FALLBACK_MODEL = "gemini-1.5-pro-latest";
-const MAX_RETRIES = 3;
+const FALLBACK_MODEL = "gemini-1.5-pro";
+const SECONDARY_FALLBACK = "gemini-1.5-flash";
+const MAX_RETRIES = 5;
 
 async function callAiWithRetry(prompt, schema) {
     const ai = getAi();
-    const models = [RESUME_AI_MODEL, FALLBACK_MODEL];
+    const models = [RESUME_AI_MODEL, FALLBACK_MODEL, SECONDARY_FALLBACK];
     let lastError = null;
 
     for (const model of models) {
@@ -75,7 +70,7 @@ async function callAiWithRetry(prompt, schema) {
             try {
                 console.log(`[AI-Service] Trying ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
                 
-                // Add 30s timeout to AI call
+                // Extra high patience for next-gen models (60s timeout)
                 const response = await Promise.race([
                     ai.models.generateContent({
                         model,
@@ -85,7 +80,7 @@ async function callAiWithRetry(prompt, schema) {
                             responseSchema: zodToJsonSchema(schema),
                         }
                     }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error(`AI Request timed out after 30s on ${model}`)), 30000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error(`AI Request timed out after 60s on ${model}`)), 60000))
                 ]);
 
                 const rawText = extractResponseText(response);
@@ -99,12 +94,12 @@ async function callAiWithRetry(prompt, schema) {
             } catch (err) {
                 lastError = err;
                 const msg = err.message || "";
-                const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded") || msg.includes("high demand") || msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED");
+                const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded") || msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("timeout");
                 console.warn(`[AI-Service] ${model} attempt ${attempt} failed: ${msg.slice(0, 120)}`);
                 
-                if (!isRetryable) break; // don't retry non-transient errors on this model
+                if (!isRetryable) break; 
                 if (attempt < MAX_RETRIES) {
-                    const delay = attempt * 2000; // 2s, 4s
+                    const delay = attempt * 3000; // Even more patient: 3s, 6s, 9s...
                     console.log(`[AI-Service] Waiting ${delay}ms before retry...`);
                     await new Promise(r => setTimeout(r, delay));
                 }
@@ -113,94 +108,28 @@ async function callAiWithRetry(prompt, schema) {
         console.log(`[AI-Service] All attempts exhausted for ${model}, trying next model...`);
     }
 
-    throw lastError || new Error("All AI models failed.");
+    console.error("[AI-Service-Error]", JSON.stringify(lastError));
+    throw lastError;
 }
 
-async function generateStructuredJson({ prompt, schema, cachePrefix = null, cacheData = null }) {
-    try {
-        // 1. Check Redis Cache first
-        let cacheKey = null;
-        if (cachePrefix && cacheData) {
-            cacheKey = generateCacheKey(cachePrefix, cacheData);
-            const cached = await getCache(cacheKey);
-            if (cached) {
-                console.log(`[AI-Cache] HIT: ${cacheKey}`);
-                return cached;
-            }
-        }
-
-        if (!process.env.GOOGLE_GENAI_API_KEY) throw new Error("GOOGLE_GENAI_API_KEY is missing.");
-
-        const validated = await callAiWithRetry(prompt, schema);
-
-        // 2. Save to Redis for future hits
-        if (cacheKey) {
-            await setCache(cacheKey, validated, 604800); // Cache for 7 days
-        }
-
-        return validated;
-    } catch (error) {
-        console.error(`[AI-Service-Error] ${error.message || "Unknown error"}`);
-        throw error;
+async function generateStructuredJson({ prompt, schema, cachePrefix = "ai", cacheData = {} }) {
+    const { getCache, setCache } = require("../utils/redis")
+    const cacheKey = generateCacheKey(cachePrefix, cacheData)
+    
+    const cached = await getCache(cacheKey)
+    if (cached) {
+        console.log(`[AI-Service] Cache hit: ${cacheKey}`)
+        return cached
     }
+
+    const result = await callAiWithRetry(prompt, schema)
+    await setCache(cacheKey, result, 86400) 
+    return result
 }
-
-const interviewReportSchema = z.object({
-    matchScore: z.number(),
-    technicalQuestions: z.array(z.object({ question: z.string(), intention: z.string(), answer: z.string() })),
-    behavioralQuestions: z.array(z.object({ question: z.string(), intention: z.string(), answer: z.string() })),
-    skillGaps: z.array(z.object({ skill: z.string(), severity: z.enum(["low", "medium", "high"]) })),
-    topSkills: z.array(z.string()),
-    preparationPlan: z.array(z.object({ day: z.number(), focus: z.string(), tasks: z.array(z.string()) })),
-    title: z.string(),
-})
-
-const noteAnswerSchema = z.object({
-    answerText: z.string(),
-    answerHtml: z.string()
-})
-
-const premiumResumeSchema = z.object({
-    header: z.object({
-        fullName: z.string(),
-        email: z.string(),
-        phone: z.string(),
-        location: z.string(),
-        links: z.array(z.object({ label: z.string(), url: z.string() })).default([])
-    }),
-    education: z.array(z.object({
-        institution: z.string(),
-        degree: z.string(),
-        duration: z.string(),
-        location: z.string(),
-        details: z.array(z.string()).optional()
-    })),
-    experience: z.array(z.object({
-        company: z.string(),
-        role: z.string(),
-        duration: z.string(),
-        location: z.string(),
-        points: z.array(z.string())
-    })).default([]),
-    projects: z.array(z.object({
-        title: z.string(),
-        techStack: z.string().optional(),
-        duration: z.string(),
-        link: z.string().optional(),
-        points: z.array(z.string())
-    })).default([]),
-    technicalSkills: z.array(z.object({
-        category: z.string(),
-        skills: z.string()
-    })),
-    achievements: z.array(z.string()).default([]),
-    interests: z.array(z.string()).default([])
-})
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
-    const prompt = `Generate a high-quality, comprehensive interview analysis report.
-Job Context: ${jobDescription}
-Candidate Details: ${resume} ${selfDescription}
+    const prompt = `You are a world-class Technical Interviewer. Analyze this candidate for the role: ${jobDescription || "Not Specified"}.
+Resume/Profile: ${resume || selfDescription || "N/A"}
 
 Requirements:
 1. Calculate a realistic matchScore (0-100).
@@ -208,7 +137,6 @@ Requirements:
 3. Generate EXACTLY 4 behavioral questions.
 4. Provide a PROPER 7-day preparation plan.
 5. Identify skill gaps and top skills accurately.
-Identification of skill gaps and top skills accurately.
 Return ONLY raw JSON in this format: 
 {
   "matchScore": number,
@@ -234,9 +162,7 @@ function escapeHtml(text = "") {
 
 function buildPremiumResumeHtml(data) {
     const { header, education, experience, projects, technicalSkills, achievements, interests } = data;
-    // Padded links for centered look
     const linksHtml = (header.links || []).map(link => `<a href="${ensureAbsoluteUrl(link.url)}" target="_blank">${link.label}</a>`).join("&nbsp;&nbsp;&nbsp;&nbsp;");
-
     const escape = (t) => escapeHtml(t);
 
     const section = (title, content) => content ? `
@@ -258,7 +184,6 @@ function buildPremiumResumeHtml(data) {
             ${edu.details?.length ? `<ul>${edu.details.map(d => `<li>${escape(d)}</li>`).join("")}</ul>` : ""}
         </div>`).join("");
 
-    // Experience/Activities section
     const experienceHtml = (experience || []).map(exp => `
         <div class="entry">
             <div class="entry-header">
@@ -285,52 +210,30 @@ function buildPremiumResumeHtml(data) {
         <p style="margin: 2pt 0;"><strong>${escape(s.category)}:</strong> ${escape(s.skills)}</p>
     `).join("");
 
-    const html = `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <style>
         @page { size: A4; margin: 0.3in 0.4in; }
-        body { 
-            font-family: "Times New Roman", Times, serif; 
-            font-size: 10pt; 
-            line-height: 1.1; 
-            color: #000; 
-            margin: 0; 
-            padding: 0;
-        }
+        body { font-family: "Times New Roman", Times, serif; font-size: 10pt; line-height: 1.1; color: #000; margin: 0; padding: 0; }
         .container { width: 100%; }
         header { text-align: center; margin-bottom: 4pt; }
         header h1 { font-size: 24pt; margin: 0; font-weight: normal; }
-        header p { margin: 1pt 0; font-size: 9pt; }
-        header .links { margin-top: 2pt; }
-        header a { color: #000; text-decoration: underline; margin: 0; font-size: 9pt; }
-        
-        .section { margin-top: 6pt; }
-        .section-title { 
-            font-size: 10pt; 
-            font-weight: bold; 
-            text-transform: uppercase; 
-            border-bottom: 1px solid #000; 
-            margin: 0 0 3pt; 
-            padding-bottom: 1pt; 
-        }
-        
-        .entry { margin-bottom: 3pt; }
-        .entry-header, .entry-subheader { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: baseline; 
-        }
+        header p { margin: 1pt 0; }
+        header a { color: #000; text-decoration: none; border-bottom: 0.5pt solid #000; }
+        .section { margin-top: 8pt; }
+        .section-title { font-size: 11pt; border-bottom: 0.8pt solid #000; margin-bottom: 3pt; padding-bottom: 1pt; font-weight: bold; text-transform: uppercase; }
+        .entry { margin-bottom: 6pt; }
+        .entry-header { display: flex; justify-content: space-between; font-weight: bold; }
+        .entry-subheader { display: flex; justify-content: space-between; font-style: italic; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
+        .right { text-align: right; min-width: 1.5in; }
         .normal { font-weight: normal; }
-        .right { text-align: right; }
-        
-        ul { margin: 1pt 0 0 14pt; padding: 0; list-style-type: disc; }
-        li { margin-bottom: 0pt; text-align: justify; font-size: 9.5pt; }
-        p { margin: 0; }
+        ul { margin: 2pt 0 0 15pt; padding: 0; }
+        li { margin-bottom: 1.5pt; }
     </style>
 </head>
 <body>
@@ -338,73 +241,74 @@ function buildPremiumResumeHtml(data) {
         <header>
             <h1>${escape(header.fullName)}</h1>
             <p>${escape(header.location)} | ${escape(header.phone)} | ${escape(header.email)}</p>
-            <div class="links">${linksHtml}</div>
+            <p>${linksHtml}</p>
         </header>
-
-        ${section("EDUCATION", educationHtml)}
-        ${section("EXPERIENCE", experienceHtml)}
-        ${section("PROJECTS", projectsHtml)}
-        ${section("TECHNICAL SKILLS", skillsHtml)}
-        ${achievements.length ? section("ACHIEVEMENTS", "<ul>" + achievements.map(a => `<li>${escape(a)}</li>`).join("") + "</ul>") : ""}
-        ${interests.length ? section("INTERESTS", "<ul><li>" + escape(interests.join(", ")) + "</li></ul>") : ""}
+        ${section("Education", educationHtml)}
+        ${section("Experience", experienceHtml)}
+        ${section("Projects", projectsHtml)}
+        ${section("Technical Skills", skillsHtml)}
+        ${achievements?.length ? section("Achievements", `<ul>${achievements.map(a => `<li>${escape(a)}</li>`).join("")}</ul>`) : ""}
+        ${interests?.length ? section("Interests", `<p>${interests.map(i => escape(i)).join(", ")}</p>`) : ""}
     </div>
 </body>
 </html>`;
-    return html;
 }
 
 let _browserInstance = null;
 let _browserLock = false;
+let _activePages = 0;
+const MAX_PAGES = 2;
 
 async function getBrowser() {
     if (_browserInstance && _browserInstance.connected) return _browserInstance;
     
-    // Simple lock to prevent concurrent launches
     if (_browserLock) {
         while (_browserLock) await new Promise(r => setTimeout(r, 100));
         return getBrowser();
     }
-    
+
     _browserLock = true;
     try {
-        if (!puppeteerLib) puppeteerLib = require("puppeteer");
+        if (!puppeteerLib) {
+            puppeteerLib = require("puppeteer");
+        }
+        
         console.log("[Puppeteer] Launching singleton browser instance...");
         _browserInstance = await puppeteerLib.launch({
-            executablePath: process.env.NODE_ENV === "production" ? "/usr/bin/chromium" : undefined,
+            headless: "new",
             args: [
-                "--no-sandbox", 
-                "--disable-setuid-sandbox", 
-                "--disable-dev-shm-usage", 
-                "--single-process",
-                "--disable-gpu",
-                "--disable-software-rasterizer",
-                "--disable-extensions",
-                "--font-render-hinting=none"
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
             ],
-            headless: "new"
+            timeout: 30000
         });
         
-        _browserInstance.on('disconnected', () => {
-            console.log("[Puppeteer] Browser disconnected, clearing instance.");
+        _browserInstance.on("disconnected", () => {
+            console.log("[Puppeteer] Browser disconnected. Clearing instance.");
             _browserInstance = null;
         });
-        
+
         return _browserInstance;
+    } catch (err) {
+        console.error("[Puppeteer] Launch Error:", err.message);
+        throw err;
     } finally {
         _browserLock = false;
     }
 }
 
-let _activePages = 0;
-const MAX_PAGES = 2;
-
 async function generatePdfFromHtml(htmlContent) {
     const startWait = Date.now();
-    // Wait for a slot if the server is busy, but max 20s
     while (_activePages >= MAX_PAGES) {
         if (Date.now() - startWait > 20000) {
-            console.error("[Puppeteer] Concurrency timeout - too many active pages.");
-            throw new Error("Server is currently busy. Please try again in a few seconds.");
+            console.error("[Puppeteer] Concurrency timeout.");
+            throw new Error("Server is busy. Please try again soon.");
         }
         await new Promise(r => setTimeout(r, 500));
     }
@@ -414,17 +318,14 @@ async function generatePdfFromHtml(htmlContent) {
     let page = null;
     try {
         browser = await getBrowser();
-        
-        // Timeout for newPage() creation to prevent hanging zombied browsers
         page = await Promise.race([
             browser.newPage(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Browser Page creation timed out")), 15000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Page creation timeout")), 15000))
         ]);
 
-        /* Set a 25s timeout for the whole PDF process */
         await Promise.race([
             page.setContent(htmlContent, { waitUntil: "networkidle0" }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("PDF content loading timed out")), 25000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Content load timeout")), 25000))
         ]);
         
         return await page.pdf({ 
@@ -433,14 +334,13 @@ async function generatePdfFromHtml(htmlContent) {
             printBackground: true 
         });
     } catch (err) {
-        console.error("[Puppeteer] PDF Generation Error:", err.message);
-        // If the browser seems zombied, force disconnect it so it restarts next time
-        if (err.message.includes("Page creation timed out") || err.message.includes("Protocol error")) {
+        console.error("[Puppeteer] PDF Error:", err.message);
+        if (err.message.includes("timeout") || err.message.includes("Protocol error")) {
             _browserInstance = null; 
         }
         throw err;
     } finally {
-        _activePages--; // Release slot
+        _activePages--; 
         if (page) {
             try { await page.close(); } catch (e) {}
         }
@@ -454,17 +354,6 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     const prompt = `Convert this candidate profile into a high-quality professional resume JSON. 
     Target Job: ${jobDescription || "N/A"}
     Profile: ${source}
-
-    RULES:
-    1. STRICT ONE PAGE LIMIT: The resume MUST fit on a single A4 page. Be concise. Use maximum 3 bullet points per project/experience. Keep achievements to 3-4 items max.
-    2. DO NOT include a "Relevant Coursework" section. Never.
-    3. Centered header, Bold capitalized sections with line below.
-    4. CONTENT: Star Method points, Standard Academic order.
-    5. SKILLS INJECTION: Automatically identify and ADD missing technical skills that are required for the "Target Job" but missing in "Profile", seamlessly integrating them into the Technical Skills section.
-    6. Bullet points for all projects and experience. If a project has a link, fill the "link" field in the projects array.
-    7. Sections must be in this EXACT order: EDUCATION, EXPERIENCE, PROJECTS, TECHNICAL SKILLS, ACHIEVEMENTS, INTERESTS.
-    8. Links: METICULOUSLY identify ALL personal and professional links (LinkedIn, GitHub, Portfolio, LeetCode, Codeforces, etc.) present anywhere in the "Profile" text. Include them in the "header.links" array with appropriate labels. Ensure ALL urls are absolute (start with https://).
-    9. Keep bullet points concise (max 1.5 lines each) to fit everything on one page.
     Return ONLY raw JSON matching the schema format:
     {
       "header": { "fullName": string, "email": string, "phone": string, "location": string, "links": [{"label": string, "url": string}] },
@@ -485,13 +374,13 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
     return generatePdfFromHtml(buildPremiumResumeHtml(data))
 }
 
-async function generateNoteAnswer({ domain, subdomain, question, sourceTag = "" }) {
+async function generateNoteAnswer({ domain, subdomain, question }) {
     const prompt = `Generate an interview answer for: ${question}
 Domain: ${domain}
-Return ONLY raw JSON in this EXACT format:
+Return ONLY raw JSON:
 {
-  "answerText": "Detailed plain text answer with key points...",
-  "answerHtml": "Same answer but professionally formatted with <strong>, <ul>, <li> tags for readability"
+  "answerText": string,
+  "answerHtml": string
 }`;
     return generateStructuredJson({ 
         prompt, 
