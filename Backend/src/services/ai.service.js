@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai"
-import crypto from "crypto"
-import { zodToJsonSchema } from "zod-to-json-schema"
-import { interviewReportSchema, premiumResumeSchema, noteAnswerSchema } from "../models/ai.schemas"
+const { GoogleGenAI } = require("@google/genai")
+const crypto = require("crypto")
+const { zodToJsonSchema } = require("zod-to-json-schema")
+const { interviewReportSchema, premiumResumeSchema, noteAnswerSchema } = require("../models/ai.schemas")
 
 const ensureAbsoluteUrl = (url = "") => {
     const s = url.trim();
@@ -70,7 +70,6 @@ async function callAiWithRetry(prompt, schema) {
             try {
                 console.log(`[AI-Service] Trying ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
                 
-                // Extra high patience for next-gen models (60s timeout)
                 const response = await Promise.race([
                     ai.models.generateContent({
                         model,
@@ -99,7 +98,7 @@ async function callAiWithRetry(prompt, schema) {
                 
                 if (!isRetryable) break; 
                 if (attempt < MAX_RETRIES) {
-                    const delay = attempt * 3000; // Even more patient: 3s, 6s, 9s...
+                    const delay = attempt * 3000; 
                     console.log(`[AI-Service] Waiting ${delay}ms before retry...`);
                     await new Promise(r => setTimeout(r, delay));
                 }
